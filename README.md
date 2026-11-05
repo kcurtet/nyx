@@ -82,6 +82,22 @@ Voz local con [phonon](https://huggingface.co/gradium/phonon-40m-es) (40M parám
 
 `jerga say` sirve para que otros programas hablen; por ejemplo, un agente que lea sus respuestas.
 
+## Trinity: órdenes por voz
+
+Empieza el dictado con **"Trinity, …"** y no se pega: va a una orquestadora (pi en una pestaña de [herdr](https://herdr.dev)) que maneja tus repos, terminales y agentes de pi o Claude.
+
+```sh
+jerga trinity                      # arrancarla (una vez)
+# Ctrl derecho: «Trinity, ve al repo jerga y cambia la imagen del README por la que tengo en descargas»
+jerga order "¿qué hace el agente de screeps?"   # lo mismo, por texto
+```
+
+- Pregunta si algo es ambiguo y **pide confirmación antes de cambiar nada**; tú contestas igual: «Trinity, sí».
+- Responde **en voz alta** (1-2 frases; el detalle queda en su panel) y avisa si el modelo falla.
+- **Ve tu pantalla** con un modelo de visión local: `jerga look "¿qué error sale?"` (lfm3-omni vía Ollama).
+
+Configuración en `[orders]` (palabra de activación, modelo de pi) y `[vision]`.
+
 ## Comandos de voz
 
 Palabras que no se escriben, sino que hacen algo. Se ignoran tildes y mayúsculas, y se pueden encadenar (*"…interrogante envía"*).

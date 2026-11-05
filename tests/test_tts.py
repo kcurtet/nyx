@@ -66,3 +66,14 @@ def test_modo_breve():
     assert sum(len(p) for p in parts[:-1]) <= 160
     corto = prepare("Hecho. Sin commit.", LEX, max_spoken=120)
     assert "El resto" not in " ".join(corto)
+
+
+def test_look_opciones(monkeypatch):
+    import jerga.vision as v
+
+    seen = {}
+    monkeypatch.setattr(v, "look", lambda q, cfg, target, keep: seen.update(q=q, target=target, keep=keep) or "ok")
+    assert v.main(["--window", "¿qué", "error?"], {}) == 0
+    assert seen == {"q": "¿qué error?", "target": "window", "keep": False}
+    v.main(["--all", "--keep", "hola"], {})
+    assert seen["target"] == "all" and seen["keep"]

@@ -7,6 +7,7 @@ Uso:
   jerga say --brief …   solo las primeras frases + "el resto lo tienes en el panel"
   jerga read            lee el texto seleccionado (igual que Ctrl+;)
   jerga hush            calla
+  jerga look "pregunta" mira la pantalla con un modelo de visión local (--window: ventana activa, --all: todo)
   jerga trinity         arranca la orquestadora (pi en una pestaña de herdr)
   jerga order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
   jerga doctor          comprueba que todo está listo en este equipo
@@ -244,6 +245,10 @@ def main():
     if cmd in ("-V", "--version", "version"):
         print(__version__)
         return
+    if cmd == "look":
+        from .vision import main as look_main
+
+        sys.exit(look_main(args[1:], config.load()["vision"]))
     if cmd == "trinity":
         from .orders import launch
 

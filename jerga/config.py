@@ -73,6 +73,13 @@ DEFAULTS: dict = {
         "strip_final_period": False,
     },
     "ui": {"backend": "auto"},  # auto | gtk | tk | none
+    "vision": {
+        # jerga look: captura de pantalla → modelo de visión local (Ollama)
+        "model": "lfm3-omni:latest",
+        "url": "http://localhost:11434",
+        "max_side": 1600,
+        "timeout": 60,
+    },
     "orders": {
         "enabled": True,
         # Si el dictado empieza por una de estas palabras, es una orden para la orquestadora.
