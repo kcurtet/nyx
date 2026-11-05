@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "jerga"
-version = "0.2.0"
+version = "0.3.0"
 description = "Dictado push-to-talk local que entiende tu jerga técnica: habla español, di git push."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,6 +14,7 @@ dependencies = [
   "sounddevice>=0.4",
   "numpy",
   "httpx",
+  "ptts>=0.6",  # voz (phonon): wheels para Linux, Windows y macOS
   "tomli>=2; python_version < '3.11'",
   # En Linux se usa el paquete de la distro (python3-evdev) vía --system-site-packages;
   # si no está, pip lo compila (necesita gcc + cabeceras del kernel).

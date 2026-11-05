@@ -130,6 +130,10 @@ class TkPill:
         self.m.busy(msg)
         self._apply()
 
+    def speaking(self, level_source, text):
+        self.m.speaking(level_source, text)
+        self._apply()
+
     def done(self, text):
         self._apply(self.m.done(text))
 

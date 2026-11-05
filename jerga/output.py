@@ -125,7 +125,7 @@ class UInputKeys:
 
 
 class YdotoolKeys:
-    CODES = {"shift": 42, "ctrl": 29, "alt": 56, "super": 125, "insert": 110, "v": 47, "enter": 28}
+    CODES = {"shift": 42, "ctrl": 29, "alt": 56, "super": 125, "insert": 110, "v": 47, "c": 46, "enter": 28}
 
     def __init__(self):
         self.env = clean_child_env()
@@ -239,6 +239,22 @@ class Output:
         if self.cfg["trailing_space"] and text and not send and not text.endswith("\n"):
             text += " "
         return text
+
+    def selection(self) -> str:
+        """Texto seleccionado. Linux: selección primaria (sin copiar). Windows: Ctrl+C."""
+        if self.clip is None:
+            return ""
+        if self.clip.has_primary:
+            data = self.clip.get(primary=True) or self.clip.get()
+            return (data or b"").decode(errors="replace")
+        old = self.clip.get()
+        if self.keys is not None:
+            self.keys.combo("ctrl+c")
+            time.sleep(0.15)
+        data = self.clip.get()
+        if old is not None and data != old:
+            threading.Thread(target=lambda: (time.sleep(0.5), self.clip.set(old)), daemon=True).start()
+        return (data or b"").decode(errors="replace")
 
     def press_enter(self):
         if self.keys is None:

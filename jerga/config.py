@@ -73,6 +73,28 @@ DEFAULTS: dict = {
         "strip_final_period": False,
     },
     "ui": {"backend": "auto"},  # auto | gtk | tk | none
+    "tts": {
+        "enabled": True,
+        "key": "ctrl+;",  # leer el texto seleccionado (otra vez: callar)
+        "model": "hf://gradium/phonon-40m-es",
+        "voice": "Nerea",
+        "quant": "q8_0",
+        "max_chars": 4000,
+        # Cómo debe sonar cada término (afinado a oído con la voz Nerea).
+        "lexicon": {
+            "git": "guit",
+            "kubectl": "kiub ci ti el",
+            "el CI/CD": "la integración continua",
+            "del CI/CD": "de la integración continua",
+            "al CI/CD": "a la integración continua",
+            "CI/CD": "integración continua",
+            "YAML": "yámal",
+            "Claude": "clod",
+            "docker compose": "dóker, compóus",
+            "pipeline": "paip-láin",
+            "pipelines": "paip-láins",
+        },
+    },
 }
 
 

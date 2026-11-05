@@ -2,7 +2,10 @@
 
 Uso:
   jerga                 arranca (widget + tecla global)
-  jerga toggle|start|stop|cancel   controla una instancia en marcha (para atajos del escritorio)
+  jerga toggle|start|stop|cancel   controla el dictado de una instancia en marcha (atajos del escritorio)
+  jerga say "texto"     lee el texto en voz alta (también por stdin: echo hola | jerga say)
+  jerga read            lee el texto seleccionado (igual que Ctrl+;)
+  jerga hush            calla
   jerga doctor          comprueba que todo está listo en este equipo
   jerga keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
   jerga config          muestra la ruta del archivo de configuración
@@ -25,6 +28,7 @@ def run():
     from .output import Output
     from .postprocess import PostProcessor
     from .stt import Transcriber
+    from .tts import Speaker
 
     if is_running():
         print("jerga ya está en marcha. Usa `jerga toggle` o ciérralo primero.")
@@ -37,10 +41,13 @@ def run():
     post = PostProcessor(cfg["replacements"], cfg["llm"], cfg["stt"]["vocabulary"], cfg["commands"])
     out = Output(cfg["output"])
     ui = ui_mod.create(cfg["ui"]["backend"])
+    speaker = Speaker(cfg["tts"]) if cfg["tts"]["enabled"] else None
     lock = threading.Lock()
     state = {"recording": False}
 
     def start():
+        if speaker and speaker.speaking:  # si empiezas a hablar, se calla
+            speaker.stop()
         with lock:
             if state["recording"]:
                 return
@@ -101,6 +108,42 @@ def run():
     def toggle():
         (stop if state["recording"] else start)()
 
+    # ------------------------------------------------------------- leer en voz alta
+    def say(text: str):
+        if speaker is None:
+            log("[tts] desactivado en la config ([tts] enabled = false)")
+            return
+        text = (text or "").strip()
+        if not text:
+            ui.call(ui.error, "nada que leer")
+            return
+        if not speaker.ready.is_set():
+            ui.call(ui.busy, "cargando voz…")
+        log(f"[tts] leyendo {len(text)} caracteres")
+
+        from .tts import normalize
+
+        shown = " ".join(normalize(text).split())  # el original, no la versión fonética
+        shown = shown if len(shown) <= 60 else shown[:57] + "…"
+        ok = speaker.say(
+            text,
+            on_start=lambda _spoken: ui.call(ui.speaking, lambda: speaker.level, shown),
+            on_end=lambda: ui.call(ui.hide),
+        )
+        if not ok:
+            ui.call(ui.error, "no se pudo leer (mira el log)")
+
+    def hush():
+        if speaker and speaker.speaking:
+            speaker.stop()
+            ui.call(ui.hide)
+
+    def read_selection():
+        if speaker and speaker.speaking:  # segunda pulsación: callar
+            hush()
+            return
+        say(out.selection())
+
     def load_model():
         try:
             stt.load()
@@ -112,13 +155,18 @@ def run():
     def on_ready():
         ui.busy("cargando modelo…")
         threading.Thread(target=load_model, daemon=True).start()
+        combos = []
+        if speaker:
+            threading.Thread(target=speaker.load, daemon=True).start()
+            combos.append((cfg["tts"]["key"], read_selection))
         ptt = PushToTalk(cfg["hotkey"]["mode"], start, stop, cancel)
         try:
-            make_listener(cfg["hotkey"]["key"], ptt).start()
+            make_listener(cfg["hotkey"]["key"], ptt, combos).start()
         except Exception as e:  # noqa: BLE001
             log(f"[hotkey] no disponible ({e}); usa `jerga toggle` desde un atajo del escritorio")
-        ControlServer({"start": start, "stop": stop, "toggle": toggle,
-                       "cancel": cancel, "ping": lambda: None}).start()
+        ControlServer({"start": start, "stop": stop, "toggle": toggle, "cancel": cancel,
+                       "say": say, "read": read_selection, "hush": hush,
+                       "ping": lambda: None}).start()
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     ui.run(on_ready)
@@ -165,11 +213,16 @@ def main():
     if cmd in ("-V", "--version", "version"):
         print(__version__)
         return
-    if cmd in ("start", "stop", "toggle", "cancel"):
+    if cmd in ("start", "stop", "toggle", "cancel", "read", "hush", "say"):
         from .hotkey import send_command
 
+        payload = ""
+        if cmd == "say":
+            payload = " ".join(args[1:]) if len(args) > 1 else ("" if sys.stdin.isatty() else sys.stdin.read())
+            if not payload.strip():
+                sys.exit('uso: jerga say "texto"   o   echo "texto" | jerga say')
         try:
-            print(send_command(cmd))
+            print(send_command(cmd, payload))
         except OSError:
             sys.exit("jerga no está en marcha")
         return

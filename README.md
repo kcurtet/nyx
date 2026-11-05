@@ -58,11 +58,29 @@ Revisa GPU, micrófono, tecla global, portapapeles y widget, y dice cómo arregl
 |---|---|
 | Mantener **Ctrl derecho** | grabar; al soltar, transcribe y pega |
 | Ctrl derecho + otra tecla | cancela (era un atajo, no dictado) |
-| `jerga toggle` / `start` / `stop` / `cancel` | control desde atajos del escritorio o scripts |
+| **Ctrl+;** | lee el texto seleccionado (otra vez: calla) |
+| `jerga toggle` / `start` / `stop` / `cancel` | control del dictado desde atajos o scripts |
+| `jerga say "…"` / `jerga hush` | leer texto en voz alta / callar |
 | `jerga keys` | muestra el nombre de las teclas que pulses (para cambiar la tecla) |
 | `jerga config` | ruta del archivo de configuración |
 
 La primera vez descarga el modelo (~1.6 GB).
+
+## Leer en voz alta
+
+Selecciona texto en cualquier sitio y pulsa **Ctrl+;**. Otra vez, se calla; si empiezas a dictar, también.
+
+```sh
+jerga say "El pipeline del CI/CD ya pasa"   # o: echo "…" | jerga say
+jerga hush                                  # callar
+```
+
+Voz local con [phonon](https://huggingface.co/gradium/phonon-40m-es) (40M parámetros, CPU, empieza a hablar en ~0,4 s). Antes de leer:
+
+- **Normaliza texto técnico:** no lee bloques de código ("Bloque de código en python"), quita Markdown y emojis, resume URLs ("un enlace a github.com") y rutas (`/etc/x/y.conf` → "y.conf").
+- **Lexicón de pronunciación** afinado a oído: `kubectl` → *kiub ci ti el*, `el CI/CD` → *la integración continua*, `pipeline` → *paip-láin*… Amplíalo en `[tts.lexicon]`.
+
+`jerga say` sirve para que otros programas hablen; por ejemplo, un agente que lea sus respuestas.
 
 ## Comandos de voz
 

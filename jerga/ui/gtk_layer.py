@@ -26,6 +26,7 @@ window.jerga {{ background: transparent; }}
 .dot.busy {{ background: {COLORS['busy']}; }}
 .dot.ok {{ background: {COLORS['ok']}; }}
 .dot.err {{ background: {COLORS['err']}; }}
+.dot.speak {{ background: {COLORS['speak']}; }}
 """.encode()
 
 
@@ -88,7 +89,7 @@ class GtkPill:
     # ------------------------------------------------------------ render
     def _render(self, hide_after=None):
         m = self.m
-        for c in ("busy", "ok", "err"):
+        for c in ("busy", "ok", "err", "speak"):
             self.dot.remove_css_class(c)
         if m.dot != "rec":
             self.dot.add_css_class(m.dot)
@@ -132,6 +133,10 @@ class GtkPill:
 
     def busy(self, msg="transcribiendo"):
         self.m.busy(msg)
+        self._render()
+
+    def speaking(self, level_source, text):
+        self.m.speaking(level_source, text)
         self._render()
 
     def done(self, text):

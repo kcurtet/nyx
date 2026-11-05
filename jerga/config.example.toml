@@ -89,6 +89,25 @@ restore_clipboard = true
 trailing_space = true
 strip_final_period = false
 
+[tts]
+# Leer en voz alta: selecciona texto y pulsa la tecla (otra vez = callar).
+# También: jerga say "texto" · echo "texto" | jerga say · jerga hush
+enabled = true
+key = "ctrl+;"                 # ej.: "ctrl+;", "ctrl+alt+r", "KEY_F9"
+voice = "Nerea"                # voces de phonon: Nerea, Alicia, Celia, Noa, Candela… (es-ES) · Regina, Ximena… (es-MX)
+model = "hf://gradium/phonon-40m-es"
+quant = "q8_0"
+max_chars = 4000
+
+# Cómo debe sonar cada término. Se aplica antes de leer (sin distinguir mayúsculas).
+# Lo que pongas aquí se suma a los de serie; para quitar uno, mapéalo a sí mismo.
+[tts.lexicon]
+# "git" = "guit"
+# "kubectl" = "kiub ci ti el"
+# "el CI/CD" = "la integración continua"
+# "YAML" = "yámal"
+# "pipeline" = "paip-láin"
+
 [ui]
 # auto | gtk (Wayland: KDE/Sway/Hyprland) | tk (Windows/X11/GNOME) | none
 backend = "auto"

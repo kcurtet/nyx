@@ -121,8 +121,28 @@ def doctor() -> int:
     if av[0] == "none" and config.IS_LINUX:
         print("     → instala gtk4-layer-shell + python-gobject (KDE/Sway/Hyprland) o python3-tk")
 
-    # ---- LLM opcional
     cfg = config.load()
+
+    # ---- Voz
+    print("Leer en voz alta")
+    if not cfg["tts"]["enabled"]:
+        _line(WARN, "desactivado en la config")
+    else:
+        try:
+            import ptts  # noqa: F401
+
+            _line(OK, f"phonon disponible · voz {cfg['tts']['voice']} · tecla {cfg['tts']['key']}")
+        except Exception as e:  # noqa: BLE001
+            problems += 1
+            _line(BAD, "ptts no instalado", str(e))
+        try:
+            import sounddevice as sd
+
+            _line(OK, f"salida de audio: {sd.query_devices(kind='output')['name']}")
+        except Exception as e:  # noqa: BLE001
+            _line(WARN, "sin salida de audio", str(e))
+
+    # ---- LLM opcional
     if cfg["llm"]["enabled"]:
         print("Corrección con LLM")
         try:

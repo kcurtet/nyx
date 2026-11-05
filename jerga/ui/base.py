@@ -18,6 +18,7 @@ COLORS = {
     "busy": "#0a84ff",
     "ok": "#30d158",
     "err": "#ff9f0a",
+    "speak": "#bf5af2",
 }
 
 
@@ -34,13 +35,15 @@ class PillModel:
         self.visible = False
         self.animating = False
         self.t0 = 0.0
+        self.timer = True  # mostrar 0:03 (grabando) o el texto (leyendo)
         self._phase = 0.0
 
     def tick(self):
         if self.level_source:
             self.levels.append(self.level_source() ** 0.6)
-            secs = int(time.monotonic() - self.t0)
-            self.text = f"{secs // 60}:{secs % 60:02d}"
+            if self.timer:
+                secs = int(time.monotonic() - self.t0)
+                self.text = f"{secs // 60}:{secs % 60:02d}"
         else:  # ola "pensando"
             self._phase += 0.25
             for i in range(BARS):
@@ -51,6 +54,12 @@ class PillModel:
         self.level_source, self.t0 = level_source, time.monotonic()
         self.levels.extend([0.0] * BARS)
         self.dot, self.text, self.muted, self.show_meter = "rec", "0:00", True, True
+        self.visible = self.animating = self.timer = True
+
+    def speaking(self, level_source, text):
+        self.level_source, self.timer = level_source, False
+        self.levels.extend([0.0] * BARS)
+        self.dot, self.text, self.muted, self.show_meter = "speak", text, False, True
         self.visible = self.animating = True
 
     def busy(self, msg):
@@ -86,6 +95,9 @@ class HeadlessUI:
 
     def busy(self, msg="transcribiendo"):
         log(f"… {msg}")
+
+    def speaking(self, level_source, text):
+        log(f"🔊 {text[:60]}")
 
     def done(self, text):
         pass
