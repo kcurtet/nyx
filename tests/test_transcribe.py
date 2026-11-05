@@ -32,3 +32,15 @@ def test_extension_pegada():
     fix = PostProcessor({}, {"enabled": False}, []).apply_rules
     assert fix("copia el package .json y el main .py") == "copia el package.json y el main.py"
     assert fix("esto es. Json") == "esto es. Json"
+
+
+def test_tray_estado_e_icono():
+    from jerga.tray import icon_image, state_of
+
+    assert state_of(None) == "down"
+    assert state_of({"stt_ready": False}) == "busy"
+    assert state_of({"stt_ready": True, "recording": True, "speaking": True}) == "recording"
+    assert state_of({"stt_ready": True, "speaking": True}) == "speaking"
+    assert state_of({"stt_ready": True}) == "idle"
+    img = icon_image("recording", 64)
+    assert img.size == (64, 64) and img.getpixel((32, 4))[:3] == (255, 69, 58)

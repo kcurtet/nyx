@@ -82,6 +82,19 @@ Voz local con [phonon](https://huggingface.co/gradium/phonon-40m-es) (40M parám
 
 `jerga say` sirve para que otros programas hablen; por ejemplo, un agente que lea sus respuestas.
 
+## Transcribir audio y vídeo
+
+```sh
+jerga transcribe reunion.mp4                 # → reunion.md con marcas de tiempo
+jerga transcribe nota.ogg --format srt       # o txt; --out DIR; --stdout
+```
+
+Cualquier formato que lea ffmpeg (mp3, ogg/opus de WhatsApp, m4a, mp4, mkv…), con tu vocabulario técnico y tus reemplazos. Usa el Whisper que ya tiene cargado el servicio: 34 s de audio en ~0,7 s en GPU. También desde el icono de la bandeja → *Transcribir fichero…*
+
+## Icono en la bandeja
+
+El servicio pone un micrófono en la bandeja del sistema que cambia de color: **gris** listo · **rojo** grabando · **azul** trabajando · **morado** leyendo · **naranja** sin servicio. Menú: dictar, leer selección/callar, transcribir fichero, Trinity, configuración, log y reiniciar. Desactívalo con `[tray] enabled = false`.
+
 ## Trinity: órdenes por voz
 
 Empieza el dictado con **"Trinity, …"** y no se pega: va a una orquestadora (pi en una pestaña de [herdr](https://herdr.dev)) que maneja tus repos, terminales y agentes de pi o Claude.

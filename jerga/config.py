@@ -73,6 +73,7 @@ DEFAULTS: dict = {
         "strip_final_period": False,
     },
     "ui": {"backend": "auto"},  # auto | gtk | tk | none
+    "tray": {"enabled": True},  # icono en la bandeja del sistema
     "vision": {
         # jerga look: captura de pantalla → modelo de visión local (Ollama)
         "model": "lfm3-omni:latest",

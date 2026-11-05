@@ -14,6 +14,7 @@ Uso:
   jerga doctor          comprueba que todo está listo en este equipo
   jerga keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
   jerga config          muestra la ruta del archivo de configuración
+  jerga tray            icono en la bandeja del sistema (lo arranca el servicio; [tray] enabled)
 """
 from __future__ import annotations
 
@@ -50,7 +51,7 @@ def run():
     speaker = Speaker(cfg["tts"]) if cfg["tts"]["enabled"] else None
     orch = Orchestrator(cfg["orders"]) if cfg["orders"]["enabled"] else None
     lock = threading.Lock()
-    state = {"recording": False}
+    state = {"recording": False, "busy": False, "error": ""}
 
     def start():
         if speaker and speaker.speaking:  # si empiezas a hablar, se calla
@@ -85,9 +86,16 @@ def run():
             ui.call(ui.hide)
             return
         ui.call(ui.busy, "transcribiendo" if stt.ready.is_set() else "cargando modelo…")
+        state["busy"] = True
         threading.Thread(target=process, args=(audio,), daemon=True).start()
 
     def process(audio):
+        try:
+            _process(audio)
+        finally:
+            state["busy"] = False
+
+    def _process(audio):
         try:
             t0 = time.monotonic()
             raw = stt.transcribe(audio)
@@ -196,6 +204,22 @@ def run():
             make_listener(cfg["hotkey"]["key"], ptt, combos).start()
         except Exception as e:  # noqa: BLE001
             log(f"[hotkey] no disponible ({e}); usa `jerga toggle` desde un atajo del escritorio")
+        def status(_payload: str = "") -> str:
+            import json
+
+            return json.dumps({
+                "version": __version__,
+                "stt_ready": stt.model is not None,
+                "stt_device": stt.device,
+                "tts_ready": bool(speaker and speaker.tts is not None),
+                "recording": state["recording"],
+                "busy": state["busy"] or stt.lock.locked(),
+                "speaking": bool(speaker and speaker.speaking),
+                "dictation_key": cfg["hotkey"]["key"],
+                "read_key": cfg["tts"]["key"],
+                "orders": cfg["orders"]["agent"] if orch else None,
+            })
+
         def transcribe_req(payload: str) -> str:
             import json
 
@@ -207,11 +231,30 @@ def run():
                 log(f"[transcribe] {line}")
             return json.dumps(res, ensure_ascii=False)
 
+        if cfg["tray"]["enabled"]:
+            start_tray()
+
         ControlServer({"start": start, "stop": stop, "toggle": toggle, "cancel": cancel,
                        "say": say, "say-brief": lambda t: say(t, brief=True),
                        "read": read_selection, "hush": hush, "order": send_order,
-                       "transcribe": transcribe_req,
+                       "transcribe": transcribe_req, "status": status,
                        "ping": lambda: None}).start()
+
+    def start_tray():
+        import subprocess
+
+        from .platform_env import clean_child_env
+
+        import importlib.util
+
+        # Solo comprobar que existe: importarlo aquí cargaría GTK3 junto al GTK4 del widget.
+        if importlib.util.find_spec("pystray") is None:
+            log("[tray] sin icono de bandeja: instala pystray")
+            return
+        # Proceso aparte (GTK3 vs GTK4) y sin nuestro LD_PRELOAD; se cierra solo si el servicio cae.
+        flags = {"creationflags": 0x08000000} if config.IS_WINDOWS else {}  # CREATE_NO_WINDOW
+        subprocess.Popen([sys.executable, "-m", "jerga", "tray"], env=clean_child_env(), **flags)
+        log("[tray] icono de bandeja en marcha")
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     ui.run(on_ready)
@@ -288,6 +331,10 @@ def main():
     if cmd == "keys":
         keys()
         return
+    if cmd == "tray":  # ANTES de prepare(): sin LD_PRELOAD de GTK4 (AppIndicator usa GTK3)
+        from .tray import main as tray_main
+
+        sys.exit(tray_main())
 
     from .platform_env import prepare
 
