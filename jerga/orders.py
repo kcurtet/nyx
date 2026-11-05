@@ -1,8 +1,8 @@
-"""Órdenes por voz: "Capitana, …" se envía a un agente pi en herdr en vez de pegarse.
+"""Órdenes por voz: "Trinity, …" se envía a un agente pi en herdr en vez de pegarse.
 
-  dictado → ¿empieza por la palabra de activación? → herdr agent prompt capitana "…"
+  dictado → ¿empieza por la palabra de activación? → herdr agent prompt trinity "…"
 
-`jerga capitana` arranca la orquestadora en una pestaña de herdr con su skill y
+`jerga trinity` arranca la orquestadora en una pestaña de herdr con su skill y
 la extensión de voz (que lee sus respuestas con `jerga say`).
 """
 from __future__ import annotations
@@ -18,13 +18,13 @@ from .commands import _fold
 from .config import log
 from .platform_env import clean_child_env
 
-CAPITANA_DIR = Path(__file__).resolve().parent / "capitana"
+AGENT_DIR = Path(__file__).resolve().parent / "trinity"
 
 
 def match_wake(text: str, wake_words: list[str]) -> str | None:
     """Si `text` empieza por una palabra de activación, devuelve la orden (sin ella); si no, None.
 
-    "Capitana, ve al repo jerga." → "ve al repo jerga."   ·   "Capitana." → ""
+    "Trinity, ve al repo jerga." → "Ve al repo jerga."   ·   "Trinity." → ""
     """
     folded = _fold(text)
     for w in sorted(wake_words, key=len, reverse=True):
@@ -55,6 +55,7 @@ class Orchestrator:
     def __init__(self, cfg: dict):
         self.cfg = cfg
         self.agent = cfg["agent"]
+        self.title = self.agent[:1].upper() + self.agent[1:]
 
     def status(self) -> str | None:
         """Estado del agente (idle/working/blocked…) o None si no existe."""
@@ -67,9 +68,9 @@ class Orchestrator:
         """Envía la orden. Devuelve (ok, mensaje para decir en voz alta si falla)."""
         st = self.status()
         if st is None:
-            return False, f"No encuentro a la {self.agent}. Arráncala con jerga capitana."
+            return False, f"No encuentro a {self.title}. Arráncala con jerga {self.agent}."
         if st == "blocked":
-            return False, f"La {self.agent} está esperando una aprobación en su panel."
+            return False, f"{self.title} está esperando una aprobación en su panel."
         # --wait --until working: confirma que el agente arranca el turno. Si el texto se queda
         # escrito sin enviar (pi aún arrancando, un aviso en pantalla…), pulsamos Enter y comprobamos.
         code, _, out = _herdr("agent", "prompt", self.agent, order, "--wait", "--until", "working",
@@ -84,31 +85,32 @@ class Orchestrator:
             if code == 0:
                 return True, ""
         log(f"[orden] herdr falló: {out[:200]}")
-        return False, f"No he podido mandar la orden a la {self.agent}. Mira su panel."
+        return False, f"No he podido mandar la orden a {self.title}. Mira su panel."
 
 
 def launch(cfg: dict) -> int:
-    """`jerga capitana`: crea la pestaña y arranca el agente (si no existe ya)."""
+    """`jerga trinity`: crea la pestaña y arranca el agente (si no existe ya)."""
     orch = Orchestrator(cfg)
     if orch.status() is not None:
-        print(f"La {orch.agent} ya está en marcha. (herdr agent focus {orch.agent} para verla)")
+        print(f"{orch.title} ya está en marcha. (herdr agent focus {orch.agent} para verla)")
         return 0
     if not os.environ.get("HERDR_ENV") and _herdr("status")[0] != 0:
         print("herdr no está en marcha: arráncalo primero (herdr).")
         return 1
-    code, data, out = _herdr("tab", "create", "--label", orch.agent, "--cwd", str(Path.home()), "--no-focus")
+    extra = ["--env", "JERGA_VOICE_DEBUG=1"] if cfg.get("debug") else []
+    code, data, out = _herdr("tab", "create", "--label", orch.agent, "--cwd", str(Path.home()), "--no-focus", *extra)
     pane = ((data or {}).get("result", {}).get("root_pane") or {}).get("pane_id")
     if code != 0 or not pane:
         print(f"No pude crear la pestaña: {out[:300]}")
         return 1
-    pi_args = ["--skill", str(CAPITANA_DIR), "-e", str(CAPITANA_DIR / "voice.ts"), "--name", orch.agent]
+    pi_args = ["--skill", str(AGENT_DIR), "-e", str(AGENT_DIR / "voice.ts"), "--name", orch.agent]
     if cfg.get("model"):
         pi_args += ["--model", cfg["model"]]
     code, _, out = _herdr("agent", "start", orch.agent, "--kind", "pi", "--pane", pane, "--", *pi_args, timeout=60)
     if code != 0:
         print(f"No pude arrancar pi: {out[:300]}")
         return 1
-    # No dar por buena la capitana hasta que pi esté de verdad esperando órdenes.
+    # No dar por buena a la orquestadora hasta que pi esté de verdad esperando órdenes.
     _herdr("agent", "wait", orch.agent, "--until", "idle", "--timeout", "60000", timeout=65)
-    print(f"Capitana en marcha en la pestaña '{orch.agent}'. Dile: «Capitana, …»")
+    print(f"{orch.title} en marcha en la pestaña '{orch.agent}'. Dile: «{orch.title}, …»")
     return 0

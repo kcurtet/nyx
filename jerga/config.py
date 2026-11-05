@@ -76,9 +76,10 @@ DEFAULTS: dict = {
     "orders": {
         "enabled": True,
         # Si el dictado empieza por una de estas palabras, es una orden para la orquestadora.
-        "wake_words": ["capitana"],
-        "agent": "capitana",  # nombre del agente en herdr
-        "model": "",  # modelo de pi para la capitana ("" = el que uses por defecto)
+        "wake_words": ["trinity"],
+        "agent": "trinity",  # nombre del agente en herdr
+        "model": "",  # modelo de pi para Trinity ("" = el que uses por defecto)
+        "debug": False,  # log de la extensión de voz en ~/.local/state/jerga/voice.log
     },
     "tts": {
         "enabled": True,

@@ -99,13 +99,13 @@ W = DEFAULTS["orders"]["wake_words"]
 
 
 def test_palabra_de_activacion():
-    assert match_wake("Capitana, ve al repo jerga y cambia la imagen.", W) == "Ve al repo jerga y cambia la imagen."
-    assert match_wake("capitana ¿qué hace el agente de screeps?", W) == "¿qué hace el agente de screeps?"
-    assert match_wake("Oye, capitana: sí, hazlo.", W) == "Sí, hazlo."
-    assert match_wake("Capitana.", W) == ""
+    assert match_wake("Trinity, ve al repo jerga y cambia la imagen.", W) == "Ve al repo jerga y cambia la imagen."
+    assert match_wake("trinity ¿qué hace el agente de screeps?", W) == "¿qué hace el agente de screeps?"
+    assert match_wake("Oye, Trinity: sí, hazlo.", W) == "Sí, hazlo."
+    assert match_wake("Trinity.", W) == ""
 
 
 def test_no_es_orden():
-    assert match_wake("La capitana del equipo dijo que sí.", W) is None
-    assert match_wake("Capitanas del mundo.", W) is None
+    assert match_wake("La Trinity de Matrix era la mejor.", W) is None
+    assert match_wake("Trinitys del mundo.", W) is None
     assert match_wake("Haz un git push.", W) is None

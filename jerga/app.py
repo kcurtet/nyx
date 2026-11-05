@@ -6,8 +6,8 @@ Uso:
   jerga say "texto"     lee el texto en voz alta (también por stdin: echo hola | jerga say)
   jerga read            lee el texto seleccionado (igual que Ctrl+;)
   jerga hush            calla
-  jerga capitana        arranca la orquestadora (pi en una pestaña de herdr)
-  jerga order "texto"   manda una orden a la capitana (igual que decir «Capitana, …»)
+  jerga trinity         arranca la orquestadora (pi en una pestaña de herdr)
+  jerga order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
   jerga doctor          comprueba que todo está listo en este equipo
   jerga keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
   jerga config          muestra la ruta del archivo de configuración
@@ -241,7 +241,7 @@ def main():
     if cmd in ("-V", "--version", "version"):
         print(__version__)
         return
-    if cmd == "capitana":
+    if cmd == "trinity":
         from .orders import launch
 
         sys.exit(launch(config.load()["orders"]))
