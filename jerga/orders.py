@@ -70,11 +70,21 @@ class Orchestrator:
             return False, f"No encuentro a la {self.agent}. Arráncala con jerga capitana."
         if st == "blocked":
             return False, f"La {self.agent} está esperando una aprobación en su panel."
-        code, _, out = _herdr("agent", "prompt", self.agent, order)
-        if code != 0:
-            log(f"[orden] herdr falló: {out[:200]}")
-            return False, f"No he podido mandar la orden a la {self.agent}."
-        return True, ""
+        # --wait --until working: confirma que el agente arranca el turno. Si el texto se queda
+        # escrito sin enviar (pi aún arrancando, un aviso en pantalla…), pulsamos Enter y comprobamos.
+        code, _, out = _herdr("agent", "prompt", self.agent, order, "--wait", "--until", "working",
+                              "--until", "blocked", "--until", "done", "--timeout", "8000", timeout=15)
+        if code == 0:
+            return True, ""
+        if "stalled" in out or "timeout" in out.lower():
+            log(f"[orden] el turno no arrancó ({out[:120]}); pulso Enter")
+            _herdr("agent", "send-keys", self.agent, "enter")
+            code, _, out = _herdr("agent", "wait", self.agent, "--until", "working", "--until", "done",
+                                  "--timeout", "6000", timeout=10)
+            if code == 0:
+                return True, ""
+        log(f"[orden] herdr falló: {out[:200]}")
+        return False, f"No he podido mandar la orden a la {self.agent}. Mira su panel."
 
 
 def launch(cfg: dict) -> int:
@@ -98,5 +108,7 @@ def launch(cfg: dict) -> int:
     if code != 0:
         print(f"No pude arrancar pi: {out[:300]}")
         return 1
+    # No dar por buena la capitana hasta que pi esté de verdad esperando órdenes.
+    _herdr("agent", "wait", orch.agent, "--until", "idle", "--timeout", "60000", timeout=65)
     print(f"Capitana en marcha en la pestaña '{orch.agent}'. Dile: «Capitana, …»")
     return 0

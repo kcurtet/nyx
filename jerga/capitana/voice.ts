@@ -31,11 +31,24 @@ function run(args: string[], stdin?: string): void {
 	}
 }
 
-/** Texto del último mensaje del asistente del turno. */
-function answerOf(messages: { role?: string; content?: unknown }[] = []): string {
+type Msg = { role?: string; content?: unknown; stopReason?: string; errorMessage?: string };
+
+/** Error del modelo en palabras que se entiendan al oído (el original puede venir hasta en chino). */
+export function spokenError(err: string): string {
+	const e = err.toLowerCase();
+	if (/\b429\b|rate.?limit|quota|limit|上限|限额/.test(e)) return "No puedo responder: has llegado al límite de uso del modelo.";
+	if (/\b40[13]\b|auth|api key|unauthori[sz]ed|forbidden/.test(e)) return "No puedo responder: hay un problema de autenticación con el modelo.";
+	if (/timeout|timed out|etimedout|econn|network|fetch failed|enotfound|\b50[234]\b|overloaded/.test(e))
+		return "No puedo responder: no hay conexión con el modelo o está saturado. Prueba en un momento.";
+	return "El modelo ha devuelto un error. Tienes el detalle en el panel.";
+}
+
+/** Texto del último mensaje del asistente del turno (o el aviso de error si el turno falló). */
+function answerOf(messages: Msg[] = []): string {
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const m = messages[i]!;
 		if (m.role !== "assistant") continue;
+		if (m.stopReason === "error") return spokenError(m.errorMessage ?? "");
 		if (typeof m.content === "string") return m.content;
 		if (Array.isArray(m.content)) {
 			return m.content
@@ -64,7 +77,7 @@ export function spoken(answer: string): string {
 // biome-ignore lint: el tipo de ExtensionAPI viene de pi en tiempo de carga
 export default function capitanaVoice(pi: any): void {
 	pi.on("before_agent_start", () => run(["hush"]));
-	pi.on("agent_end", (event: { messages?: { role?: string; content?: unknown }[] }) => {
+	pi.on("agent_end", (event: { messages?: Msg[] }) => {
 		const text = spoken(answerOf(event.messages));
 		if (text) run(["say"], text);
 	});
