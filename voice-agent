@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Lanzador: prepara librerías CUDA y layer-shell, y arranca voice-agent.
+set -euo pipefail
+DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+NV="$DIR/.venv/lib/python3.14/site-packages/nvidia"
+export LD_LIBRARY_PATH="$NV/cublas/lib:$NV/cudnn/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# gtk4-layer-shell debe cargarse antes que libwayland-client
+export LD_PRELOAD="/usr/lib/libgtk4-layer-shell.so${LD_PRELOAD:+:$LD_PRELOAD}"
+export PYTHONUNBUFFERED=1
+cd "$DIR"
+exec "$DIR/.venv/bin/python" -m voice_agent "$@"

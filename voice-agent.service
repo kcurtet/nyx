@@ -1,0 +1,12 @@
+[Unit]
+Description=voice-agent (dictado push-to-talk)
+After=graphical-session.target ydotool.service
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/dev/voice-agent/voice-agent
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target

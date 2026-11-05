@@ -1,0 +1,64 @@
+# voice-agent — configuración
+# Se copia a ~/.config/voice-agent/config.toml la primera vez. Edita esa copia.
+
+[hotkey]
+# Nombre evdev de la tecla (ver `python -m evdev.evtest` o `voice-agent keys`).
+key = "KEY_RIGHTCTRL"
+# "hold": mantener pulsada para grabar, soltar para transcribir.
+#         Si pulsas otra tecla mientras la mantienes, se cancela (era un atajo).
+# "toggle": una pulsación empieza, otra termina.
+mode = "hold"
+min_seconds = 0.35          # grabaciones más cortas se descartan
+
+[stt]
+model = "large-v3-turbo"    # o "large-v3" (más lento, algo más preciso)
+device = "cuda"
+compute_type = "float16"
+language = "es"
+beam_size = 5
+# Vocabulario que Whisper debe "esperar". Se mete en el prompt inicial.
+# Escríbelo como quieres que aparezca (mayúsculas incluidas).
+vocabulary = [
+  "git", "git push", "git pull", "git commit", "git rebase", "git merge", "git stash",
+  "GitHub", "pull request", "PR", "branch", "main", "checkout", "cherry-pick",
+  "Docker", "docker compose", "Dockerfile", "Kubernetes", "kubectl", "Helm",
+  "deploy", "build", "pipeline", "CI/CD", "staging", "frontend", "backend",
+  "TypeScript", "JavaScript", "Python", "Rust", "React", "Next.js", "Node",
+  "npm", "pnpm", "uv", "API", "endpoint", "JSON", "YAML", "TOML", "README",
+  "refactor", "debug", "bug", "fix", "test", "commit", "issue", "Ollama", "llama.cpp",
+  "pi", "Claude", "prompt", "LLM", "Linux", "Wayland", "KDE",
+]
+
+# Correcciones exactas (sin distinguir mayúsculas, por palabra completa).
+# Añade aquí los errores que veas repetirse.
+[replacements]
+"hit push" = "git push"
+"hit pull" = "git pull"
+"guit" = "git"
+"guijab" = "GitHub"
+"git hub" = "GitHub"
+"dóquer" = "Docker"
+"doquer" = "Docker"
+"docker con pose" = "docker compose"
+"cubernetis" = "Kubernetes"
+"pul request" = "pull request"
+"pool request" = "pull request"
+
+[llm]
+# Segunda pasada con un LLM local que corrige SOLO términos técnicos.
+# Añade ~0.3-1 s de latencia. Actívalo si los reemplazos no bastan.
+enabled = false
+url = "http://localhost:11434"   # Ollama
+model = "qwen2.5:3b"
+timeout = 4.0
+
+[output]
+# "paste": copia al portapapeles y pulsa paste_keys (rápido, soporta tildes/ñ).
+# "type": teclea con ydotool (lento, sin tildes fiables).
+# "clipboard": solo copia, tú pegas.
+method = "paste"
+# shift+insert pega en terminales y casi todas las apps. Alternativa: "ctrl+v", "ctrl+shift+v".
+paste_keys = "shift+insert"
+restore_clipboard = true
+trailing_space = true
+strip_final_period = false
