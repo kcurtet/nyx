@@ -91,6 +91,7 @@ DEFAULTS: dict = {
         "debug": False,  # log de la extensión de voz en ~/.local/state/jerga/voice.log
         # Arrancar solo con lo necesario (estado de herdr + pi-herdr + voz), sin tus otras extensiones/skills.
         "isolated": True,
+        "topology": "workspace",  # workspace propio (recomendado) o "tab" en el workspace actual
         # Ruta a pi-herdr (paquete o index.ts). "" = el instalado con `pi install`.
         "pi_herdr": "",
     },

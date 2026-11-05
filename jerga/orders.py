@@ -139,10 +139,13 @@ def launch(cfg: dict) -> int:
         return 1
     # PI_HERDR_SCOPE=global: pi-herdr ve y vigila TODOS los agentes de herdr (spec 004 de pi-herdr)
     extra = ["--env", "PI_HERDR_SCOPE=global"] + (["--env", "JERGA_VOICE_DEBUG=1"] if cfg.get("debug") else [])
-    code, data, out = _herdr("tab", "create", "--label", orch.agent, "--cwd", str(Path.home()), "--no-focus", *extra)
+    # Su propio workspace (por defecto): lo que ella despache con pi-herdr acaba ahí también,
+    # separado de tus workspaces de trabajo.
+    where = "workspace" if cfg.get("topology", "workspace") == "workspace" else "tab"
+    code, data, out = _herdr(where, "create", "--label", orch.agent, "--cwd", str(Path.home()), "--no-focus", *extra)
     pane = ((data or {}).get("result", {}).get("root_pane") or {}).get("pane_id")
     if code != 0 or not pane:
-        print(f"No pude crear la pestaña: {out[:300]}")
+        print(f"No pude crear el {where}: {out[:300]}")
         return 1
     pi_args = [*pi_args_for(cfg), "--name", orch.agent]
     code, _, out = _herdr("agent", "start", orch.agent, "--kind", "pi", "--pane", pane, "--", *pi_args, timeout=60)
@@ -151,5 +154,5 @@ def launch(cfg: dict) -> int:
         return 1
     # No dar por buena a la orquestadora hasta que pi esté de verdad esperando órdenes.
     _herdr("agent", "wait", orch.agent, "--until", "idle", "--timeout", "60000", timeout=65)
-    print(f"{orch.title} en marcha en la pestaña '{orch.agent}'. Dile: «{orch.title}, …»")
+    print(f"{orch.title} en marcha en su {'workspace' if where == 'workspace' else 'pestaña'} '{orch.agent}'. Dile: «{orch.title}, …»")
     return 0
