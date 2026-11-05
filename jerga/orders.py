@@ -88,6 +88,46 @@ class Orchestrator:
         return False, f"No he podido mandar la orden a {self.title}. Mira su panel."
 
 
+def _pi_agent_dir() -> Path:
+    return Path(os.environ.get("PI_CODING_AGENT_DIR") or Path.home() / ".pi" / "agent")
+
+
+def _ext_file(path: Path) -> Path | None:
+    """Ruta cargable con -e: el propio fichero, o el index.ts de un paquete."""
+    if path.is_file():
+        return path
+    for name in ("index.ts", "index.js"):
+        if (path / name).is_file():
+            return path / name
+    return None
+
+
+def pi_args_for(cfg: dict) -> list[str]:
+    """Argumentos de pi para la orquestadora.
+
+    isolated (por defecto): sin extensiones ni skills del usuario (nada de formularios
+    interactivos que no se pueden contestar por voz, menos contexto), solo:
+    integración de estado de herdr + pi-herdr (modo global) + su voz.
+    """
+    args = ["--skill", str(AGENT_DIR)]
+    if cfg.get("isolated", True):
+        args = ["--no-extensions", "--no-skills", *args]
+        state = _pi_agent_dir() / "extensions" / "herdr-agent-state.ts"
+        if state.is_file():
+            args += ["-e", str(state)]
+        herdr_pkg = Path(os.path.expanduser(cfg.get("pi_herdr") or "")) if cfg.get("pi_herdr") else \
+            _pi_agent_dir() / "git" / "github.com" / "kcurtet" / "pi-herdr"
+        ext = _ext_file(herdr_pkg)
+        if ext:
+            args += ["-e", str(ext)]
+        else:
+            log(f"[orden] pi-herdr no encontrado en {herdr_pkg}: sin herdr_watch")
+    args += ["-e", str(AGENT_DIR / "voice.ts")]
+    if cfg.get("model"):
+        args += ["--model", cfg["model"]]
+    return args
+
+
 def launch(cfg: dict) -> int:
     """`jerga trinity`: crea la pestaña y arranca el agente (si no existe ya)."""
     orch = Orchestrator(cfg)
@@ -97,15 +137,14 @@ def launch(cfg: dict) -> int:
     if not os.environ.get("HERDR_ENV") and _herdr("status")[0] != 0:
         print("herdr no está en marcha: arráncalo primero (herdr).")
         return 1
-    extra = ["--env", "JERGA_VOICE_DEBUG=1"] if cfg.get("debug") else []
+    # PI_HERDR_SCOPE=global: pi-herdr ve y vigila TODOS los agentes de herdr (spec 004 de pi-herdr)
+    extra = ["--env", "PI_HERDR_SCOPE=global"] + (["--env", "JERGA_VOICE_DEBUG=1"] if cfg.get("debug") else [])
     code, data, out = _herdr("tab", "create", "--label", orch.agent, "--cwd", str(Path.home()), "--no-focus", *extra)
     pane = ((data or {}).get("result", {}).get("root_pane") or {}).get("pane_id")
     if code != 0 or not pane:
         print(f"No pude crear la pestaña: {out[:300]}")
         return 1
-    pi_args = ["--skill", str(AGENT_DIR), "-e", str(AGENT_DIR / "voice.ts"), "--name", orch.agent]
-    if cfg.get("model"):
-        pi_args += ["--model", cfg["model"]]
+    pi_args = [*pi_args_for(cfg), "--name", orch.agent]
     code, _, out = _herdr("agent", "start", orch.agent, "--kind", "pi", "--pane", pane, "--", *pi_args, timeout=60)
     if code != 0:
         print(f"No pude arrancar pi: {out[:300]}")

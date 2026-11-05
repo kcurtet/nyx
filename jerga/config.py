@@ -87,6 +87,10 @@ DEFAULTS: dict = {
         "agent": "trinity",  # nombre del agente en herdr
         "model": "",  # modelo de pi para Trinity ("" = el que uses por defecto)
         "debug": False,  # log de la extensión de voz en ~/.local/state/jerga/voice.log
+        # Arrancar solo con lo necesario (estado de herdr + pi-herdr + voz), sin tus otras extensiones/skills.
+        "isolated": True,
+        # Ruta a pi-herdr (paquete o index.ts). "" = el instalado con `pi install`.
+        "pi_herdr": "",
     },
     "tts": {
         "enabled": True,

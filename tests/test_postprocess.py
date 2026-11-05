@@ -109,3 +109,21 @@ def test_no_es_orden():
     assert match_wake("La Trinity de Matrix era la mejor.", W) is None
     assert match_wake("Trinitys del mundo.", W) is None
     assert match_wake("Haz un git push.", W) is None
+
+
+def test_pi_args_orquestadora(tmp_path, monkeypatch):
+    from jerga.orders import AGENT_DIR, pi_args_for
+
+    agent = tmp_path / "agent"
+    (agent / "extensions").mkdir(parents=True)
+    (agent / "extensions" / "herdr-agent-state.ts").write_text("//")
+    pkg = tmp_path / "pi-herdr"
+    pkg.mkdir()
+    (pkg / "index.ts").write_text("//")
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(agent))
+    args = pi_args_for({"isolated": True, "pi_herdr": str(pkg), "model": "x/y"})
+    assert args[:2] == ["--no-extensions", "--no-skills"]
+    assert ["-e", str(agent / "extensions" / "herdr-agent-state.ts")] == args[4:6]
+    assert ["-e", str(pkg / "index.ts")] == args[6:8]
+    assert args[-4:] == ["-e", str(AGENT_DIR / "voice.ts"), "--model", "x/y"]
+    assert pi_args_for({"isolated": False}) == ["--skill", str(AGENT_DIR), "-e", str(AGENT_DIR / "voice.ts")]
