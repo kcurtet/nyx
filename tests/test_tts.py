@@ -48,3 +48,21 @@ def test_parse_combo():
     assert parse_combo("ctrl+KEY_SEMICOLON") == (["ctrl"], "KEY_SEMICOLON")
     assert parse_combo("ctrl+alt+r") == (["ctrl", "alt"], "KEY_R")
     assert parse_combo("KEY_F9") == ([], "KEY_F9")
+
+
+def test_tabla_aplanada_y_basura_visual():
+    t = "Estado actual: | Agente | Pane | Estado | |---|---|---| | pi screeps | w1D:p1 | idle | Ojo: hay dos pi."
+    out = say(t)
+    assert "|" not in out and "---" not in out and "w1D" not in out
+    assert "Hay una tabla." in out and "Ojo: hay dos pi." in out
+    assert "─" not in normalize("Resumen ──────── fin ═══ │ ok")
+    assert normalize("Antes\n-----\nDespués") == "Antes\nDespués"
+
+
+def test_modo_breve():
+    largo = " ".join(f"Frase número {i} con algo de texto." for i in range(30))
+    parts = prepare(largo, LEX, max_spoken=120)
+    assert parts[-1] == "El resto lo tienes en el panel."
+    assert sum(len(p) for p in parts[:-1]) <= 160
+    corto = prepare("Hecho. Sin commit.", LEX, max_spoken=120)
+    assert "El resto" not in " ".join(corto)

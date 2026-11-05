@@ -2,8 +2,8 @@
  * jerga · voz de Trinity (extensión de pi).
  *
  * - Al empezar un turno (llega una orden nueva): `jerga hush`, calla lo que se estuviera leyendo.
- * - Al terminar: lee la respuesta final con `jerga say` (phonon + lexicón + normalizador).
- *   Respuestas largas: solo el principio y "el resto lo tienes en el panel".
+ * - Al terminar: lee la respuesta final con `jerga say --brief`. jerga limpia el Markdown
+ *   (tablas, código…) y DESPUÉS recorta por frases: "el resto lo tienes en el panel".
  * - Si el modelo falla (cuota, auth, red): lo dice en una frase clara.
  *
  * Se carga solo en la sesión de Trinity (`jerga trinity` la arranca con -e).
@@ -13,8 +13,6 @@ import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
-const MAX_SPOKEN = 420;
 
 type Msg = { role?: string; content?: unknown; stopReason?: string; errorMessage?: string };
 
@@ -78,19 +76,6 @@ export function answerOf(messages: Msg[] = []): string {
 	return "";
 }
 
-/** Recorta por frases a ~MAX_SPOKEN caracteres. */
-export function spoken(answer: string): string {
-	const text = answer.trim();
-	if (text.length <= MAX_SPOKEN) return text;
-	const sentences = text.match(/[^.!?¿¡\n]+[.!?]*/g) ?? [text];
-	let out = "";
-	for (const s of sentences) {
-		if ((out + s).length > MAX_SPOKEN) break;
-		out += s;
-	}
-	return `${(out || text.slice(0, MAX_SPOKEN)).trim()} El resto lo tienes en el panel.`;
-}
-
 // El tipo ExtensionAPI lo aporta pi al cargar; aquí no hay dependencias.
 export default function trinityVoice(pi: any): void {
 	let spokeThisTurn = false;
@@ -99,7 +84,7 @@ export default function trinityVoice(pi: any): void {
 		if (!text || spokeThisTurn) return;
 		spokeThisTurn = true;
 		debug(`say (${why}): ${text.slice(0, 80)}`);
-		run(["say"], spoken(text));
+		run(["say", "--brief"], text);
 	};
 
 	pi.on("before_agent_start", () => {

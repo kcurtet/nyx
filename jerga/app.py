@@ -4,6 +4,7 @@ Uso:
   jerga                 arranca (widget + tecla global)
   jerga toggle|start|stop|cancel   controla el dictado de una instancia en marcha (atajos del escritorio)
   jerga say "texto"     lee el texto en voz alta (también por stdin: echo hola | jerga say)
+  jerga say --brief …   solo las primeras frases + "el resto lo tienes en el panel"
   jerga read            lee el texto seleccionado (igual que Ctrl+;)
   jerga hush            calla
   jerga trinity         arranca la orquestadora (pi en una pestaña de herdr)
@@ -137,7 +138,7 @@ def run():
             say(msg)
 
     # ------------------------------------------------------------- leer en voz alta
-    def say(text: str):
+    def say(text: str, brief: bool = False):
         if speaker is None:
             log("[tts] desactivado en la config ([tts] enabled = false)")
             return
@@ -155,6 +156,7 @@ def run():
         shown = shown if len(shown) <= 60 else shown[:57] + "…"
         ok = speaker.say(
             text,
+            brief=brief,
             on_start=lambda _spoken: ui.call(ui.speaking, lambda: speaker.level, shown),
             on_end=lambda: ui.call(ui.hide),
         )
@@ -193,7 +195,8 @@ def run():
         except Exception as e:  # noqa: BLE001
             log(f"[hotkey] no disponible ({e}); usa `jerga toggle` desde un atajo del escritorio")
         ControlServer({"start": start, "stop": stop, "toggle": toggle, "cancel": cancel,
-                       "say": say, "read": read_selection, "hush": hush, "order": send_order,
+                       "say": say, "say-brief": lambda t: say(t, brief=True),
+                       "read": read_selection, "hush": hush, "order": send_order,
                        "ping": lambda: None}).start()
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -250,7 +253,10 @@ def main():
 
         payload = ""
         if cmd in ("say", "order"):
-            payload = " ".join(args[1:]) if len(args) > 1 else ("" if sys.stdin.isatty() else sys.stdin.read())
+            rest = args[1:]
+            if cmd == "say" and rest[:1] == ["--brief"]:  # resumen hablado: corta por frases
+                cmd, rest = "say-brief", rest[1:]
+            payload = " ".join(rest) if rest else ("" if sys.stdin.isatty() else sys.stdin.read())
             if not payload.strip():
                 sys.exit(f'uso: jerga {cmd} "texto"   o   echo "texto" | jerga {cmd}')
         try:

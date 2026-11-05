@@ -25,7 +25,10 @@ _MD_LINK = re.compile(r"\[([^\]]+)\]\((?:[^)]+)\)")
 _URL = re.compile(r"\bhttps?://(?:www\.)?([^/\s)]+)[^\s)]*")
 # rutas: empiezan por / ~/ ./ ../ o tienen 2+ barras (así "CI/CD" o "y/o" no cuentan)
 _PATH = re.compile(r"(?<![\w/])(?:~|\.{1,2})?/(?:[\w.@+-]+/)*([\w.@+-]+)|(?<![\w/])(?:[\w.@+-]+/){2,}([\w.@+-]+)")
-_TABLE_LINE = re.compile(r"^\s*\|.*\|\s*$|^\s*\|?\s*:?-{3,}")
+_TABLE_LINE = re.compile(r"^\s*\|.*\|\s*$|^\s*\|?\s*:?-{3,}:?\s*\|")
+_INLINE_TABLE = re.compile(r"\|(?:[^|\n]*\|){2,}")
+_BOX = re.compile(r"[\u2500-\u259f]+")
+_RULE = re.compile(r"(?<!\w)[-=_*~]{3,}(?!\w)")
 
 
 def _strip_emoji(s: str) -> str:
@@ -47,6 +50,11 @@ def normalize(text: str) -> str:
         line = re.sub(r"^\s*>\s?", "", line)  # citas
         lines.append(line)
     text = "\n".join(lines)
+    # Tablas aplanadas en una línea ("| a | b | |---|---| | 1 | 2 |"): fuera entera
+    text = _INLINE_TABLE.sub(" Hay una tabla. ", text)
+    text = _BOX.sub(" ", text)  # caracteres de dibujo de cajas (│ ─ ┼ █…)
+    text = _RULE.sub(" ", text)  # ---, ===, ***, ___
+    text = text.replace("|", " ")
     text = _MD_LINK.sub(r"\1", text)
     text = _URL.sub(lambda m: f"un enlace a {m.group(1)}", text)
     text = _INLINE_CODE.sub(r"\1", text)
@@ -55,8 +63,7 @@ def normalize(text: str) -> str:
     text = text.replace("->", " a ").replace("→", " a ").replace("&", " y ")
     text = _strip_emoji(text)
     text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n{2,}", "\n", text)
-    return text.strip()
+    return "\n".join(line.strip() for line in text.splitlines() if line.strip())
 
 
 class Lexicon:
@@ -96,10 +103,24 @@ def sentences(text: str, max_len: int = 220) -> list[str]:
     return out
 
 
-def prepare(text: str, lexicon: Lexicon, max_chars: int = 4000) -> list[str]:
+BRIEF_TAIL = "El resto lo tienes en el panel."
+
+
+def prepare(text: str, lexicon: Lexicon, max_chars: int = 4000, max_spoken: int | None = None) -> list[str]:
+    """Texto → frases listas para leer. `max_spoken`: modo breve, recorta por frases ya limpias."""
     text = text[:max_chars]
     # El lexicón va antes que el normalizador de rutas: "CI/CD" no debe leerse como ruta.
-    return sentences(normalize(lexicon(text)))
+    parts = sentences(normalize(lexicon(text)))
+    if max_spoken is None:
+        return parts
+    out, total = [], 0
+    for p in parts:
+        if out and total + len(p) > max_spoken:
+            out.append(BRIEF_TAIL)
+            break
+        out.append(p)
+        total += len(p)
+    return out
 
 
 # ---------------------------------------------------------------- hablar
@@ -143,14 +164,15 @@ class Speaker:
         if t is not None and t is not threading.current_thread():
             t.join(timeout=2)
 
-    def say(self, text: str, on_start=None, on_end=None) -> bool:
+    def say(self, text: str, on_start=None, on_end=None, brief: bool = False) -> bool:
         """Lee `text` en segundo plano (interrumpe lo que estuviera leyendo)."""
         with self._lock:
             self.stop()
             self.ready.wait()
             if self.tts is None:
                 return False
-            parts = prepare(text, self.lexicon, self.cfg.get("max_chars", 4000))
+            parts = prepare(text, self.lexicon, self.cfg.get("max_chars", 4000),
+                            self.cfg.get("brief_chars", 350) if brief else None)
             if not parts:
                 return False
             self._stop.clear()
