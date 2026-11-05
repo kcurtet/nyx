@@ -26,6 +26,19 @@ _URL = re.compile(r"\bhttps?://(?:www\.)?([^/\s)]+)[^\s)]*")
 # rutas: empiezan por / ~/ ./ ../ o tienen 2+ barras (así "CI/CD" o "y/o" no cuentan)
 _PATH = re.compile(r"(?<![\w/])(?:~|\.{1,2})?/(?:[\w.@+-]+/)*([\w.@+-]+)|(?<![\w/])(?:[\w.@+-]+/){2,}([\w.@+-]+)")
 _TABLE_LINE = re.compile(r"^\s*\|.*\|\s*$|^\s*\|?\s*:?-{3,}:?\s*\|")
+# Duraciones de agentes/CLIs: "5m 48s", "2s", "1h30m", "250ms" (en contexto técnico m = minutos)
+_DURATION = re.compile(r"(?<![\w.])(\d+(?:[.,]\d+)?)\s?(ms|h|min|m|s)(?![\w/])")
+_UNITS = {"ms": ("milisegundo", "milisegundos"), "h": ("hora", "horas"), "min": ("minuto", "minutos"),
+          "m": ("minuto", "minutos"), "s": ("segundo", "segundos")}
+
+
+def _duration(m: re.Match) -> str:
+    n, unit = m.group(1), m.group(2)
+    one, many = _UNITS[unit]
+    return f"{n} {one if n == '1' else many}"
+
+
+_PANE_ID = re.compile(r"(?<![\w/])w\w+:[ptw]\w+(?![\w/])")
 _INLINE_TABLE = re.compile(r"\|(?:[^|\n]*\|){2,}")
 _BOX = re.compile(r"[\u2500-\u259f]+")
 _RULE = re.compile(r"(?<!\w)[-=_*~]{3,}(?!\w)")
@@ -60,6 +73,11 @@ def normalize(text: str) -> str:
     text = _INLINE_CODE.sub(r"\1", text)
     text = _PATH.sub(lambda m: m.group(1) or m.group(2), text)
     text = re.sub(r"(\*\*|__|\*|_|~~)(?=\S)(.+?)(?<=\S)\1", r"\2", text)  # negrita/cursiva
+    text = _PANE_ID.sub("", text)  # ids de herdr (w23:p1) no aportan nada al oído
+    text = re.sub(r"\(\s*[,;:]\s*", "(", text)  # "(w1D:p1, idle)" → "(idle)"
+    text = re.sub(r"\(\s*\)", "", text)  # paréntesis que se quedan vacíos
+    text = re.sub(r"(\d)(h|m|min)(\d)", r"\1\2 \3", text)  # "1h30m" → "1h 30m"
+    text = _DURATION.sub(_duration, text)
     text = text.replace("->", " a ").replace("→", " a ").replace("&", " y ")
     text = _strip_emoji(text)
     text = re.sub(r"[ \t]+", " ", text)

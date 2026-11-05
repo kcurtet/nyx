@@ -77,3 +77,16 @@ def test_look_opciones(monkeypatch):
     assert seen == {"q": "¿qué error?", "target": "window", "keep": False}
     v.main(["--all", "--keep", "hola"], {})
     assert seen["target"] == "all" and seen["keep"]
+
+
+def test_duraciones():
+    assert normalize("Claude ha terminado (5m 48s).") == "Claude ha terminado (5 minutos 48 segundos)."
+    assert normalize("Tardó 1m y 250ms, total 2s") == "Tardó 1 minuto y 250 milisegundos, total 2 segundos"
+    assert normalize("Lleva 1h30m") == "Lleva 1 hora 30 minutos"
+    assert normalize("Usa 8gb y el puerto 5432") == "Usa 8gb y el puerto 5432"  # no toca otras cosas
+    assert normalize("versión 2.5s3") == "versión 2.5s3"
+
+
+def test_ids_de_panel():
+    assert normalize("Vigilando a Claude (`w23:p1`) en jerga.") == "Vigilando a Claude en jerga."
+    assert normalize("El de screeps (w1D:p1, idle) está parado") == "El de screeps (idle) está parado"
