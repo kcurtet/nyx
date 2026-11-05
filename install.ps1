@@ -44,6 +44,16 @@ if ($Local) {
     $spec = "jerga$extra @ git+$Repo"
 }
 
+# ffmpeg: necesario para transcribir audio/vídeo (jerga transcribe, notas de voz)
+if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Step "Instalando ffmpeg (winget)"
+        winget install --id Gyan.FFmpeg -e --silent --accept-package-agreements --accept-source-agreements | Out-Null
+    } else {
+        Write-Host "   ! sin ffmpeg: jerga transcribe no funcionará (instálalo y añádelo al PATH)" -ForegroundColor Yellow
+    }
+}
+
 Step "Instalando jerga ($spec)"
 uv tool install --force --python 3.12 $spec
 if ($LASTEXITCODE -ne 0) { throw "falló uv tool install" }
@@ -69,3 +79,5 @@ Write-Host "  Comprueba el equipo:  jerga doctor   (abre una terminal nueva)"
 Write-Host "  Configuracion:        jerga config"
 Write-Host "  Log:                  %LOCALAPPDATA%\jerga\jerga.log"
 Write-Host "  Uso: mantén Ctrl derecho, habla y suelta. La 1a vez descarga el modelo (~1.6 GB)."
+Write-Host "  Leer en voz alta: selecciona texto y pulsa Ctrl+0."
+& (Join-Path $binDir "jerga.exe") doctor

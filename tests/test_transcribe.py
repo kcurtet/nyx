@@ -140,3 +140,41 @@ def test_ficheros_largos_por_bloques():
     calls.clear()
     transcribe_long(FakeSTT(), corto, opts={"long_after_s": 600})
     assert calls == [""]  # corto: entero, una sola llamada
+
+
+def test_seleccion_por_copia(monkeypatch):
+    import jerga.output as o
+
+    class Clip:
+        has_primary = True
+
+        def __init__(self):
+            self.data, self.prim, self.sets = b"portapapeles viejo", b"seleccion vieja", []
+
+        def get(self, primary=False):
+            return self.prim if primary else self.data
+
+        def set(self, d, primary=False):
+            self.sets.append(d)
+            self.data = d
+
+    class Keys:
+        def __init__(self, clip, copies):
+            self.clip, self.copies, self.pressed = clip, copies, []
+
+        def combo(self, c):
+            self.pressed.append(c)
+            if self.copies:
+                self.clip.data = b"texto seleccionado ahora"
+
+    monkeypatch.setattr(o.time, "sleep", lambda s: None)
+    out = o.Output.__new__(o.Output)
+    out.clip = Clip()
+    out.keys = Keys(out.clip, copies=True)
+    assert out.selection() == "texto seleccionado ahora"
+    assert out.keys.pressed == ["ctrl+insert"]  # nunca Ctrl+C en Linux (mataría procesos en terminales)
+
+    out.clip = Clip()
+    out.keys = Keys(out.clip, copies=False)  # la app no copió → selección primaria
+    assert out.selection() == "seleccion vieja"
+    assert out.selection("primary") == "seleccion vieja" and out.keys.pressed == ["ctrl+insert"]

@@ -125,6 +125,9 @@ DEFAULTS: dict = {
         "key": "ctrl+0",  # leer el texto seleccionado (otra vez: callar). También por voz: «léeme esto»
         "model": "hf://gradium/phonon-40m-es",
         "voice": "Nerea",
+        # copy: pulsa "copiar" (Ctrl+Insert) y lee el portapapeles (fiable en todas las apps)
+        # primary: solo la selección primaria de Linux (sin pulsar nada; algunas apps no la actualizan)
+        "selection": "copy",
         "quant": "q8_0",
         "max_chars": 4000,
         # Cómo debe sonar cada término (afinado a oído con la voz Nerea).

@@ -105,7 +105,8 @@ class UInputKeys:
         time.sleep(0.3)  # dar tiempo al compositor a registrar el dispositivo
 
     def code(self, k: str) -> int:
-        alias = {"ctrl": "LEFTCTRL", "shift": "LEFTSHIFT", "alt": "LEFTALT", "super": "LEFTMETA",
+        # "ctrl" = Ctrl DERECHO: con ctrl:swapcaps el escritorio convierte el izquierdo en Bloq Mayús
+        alias = {"ctrl": "RIGHTCTRL", "shift": "LEFTSHIFT", "alt": "LEFTALT", "super": "LEFTMETA",
                  "meta": "LEFTMETA", "ins": "INSERT"}
         return self.e.ecodes["KEY_" + alias.get(k, k).upper()]
 
@@ -125,7 +126,7 @@ class UInputKeys:
 
 
 class YdotoolKeys:
-    CODES = {"shift": 42, "ctrl": 29, "alt": 56, "super": 125, "insert": 110, "v": 47, "c": 46, "enter": 28}
+    CODES = {"shift": 42, "ctrl": 97, "alt": 56, "super": 125, "insert": 110, "v": 47, "c": 46, "enter": 28}
 
     def __init__(self):
         self.env = clean_child_env()
@@ -240,20 +241,38 @@ class Output:
             text += " "
         return text
 
-    def selection(self) -> str:
-        """Texto seleccionado. Linux: selección primaria (sin copiar). Windows: Ctrl+C."""
+    SENTINEL = b"\x00jerga-seleccion\x00"
+
+    def selection(self, mode: str = "copy") -> str:
+        """Texto seleccionado.
+
+        copy (por defecto): pulsa "copiar" por ti (Ctrl+Insert en Linux: copia en navegadores,
+          editores y terminales sin el Ctrl+C que mataría el proceso de una terminal; Ctrl+C en
+          Windows), lee el portapapeles y lo deja como estaba. Si nada se copia, usa la selección
+          primaria. Robusto: hay apps que no actualizan la primaria al seleccionar.
+        primary: solo la selección primaria (sin pulsar nada).
+        """
         if self.clip is None:
             return ""
-        if self.clip.has_primary:
-            data = self.clip.get(primary=True) or self.clip.get()
+        primary = (lambda: self.clip.get(primary=True)) if self.clip.has_primary else (lambda: None)
+        if mode == "primary" or self.keys is None:
+            data = primary() or (None if self.clip.has_primary else self.clip.get())
             return (data or b"").decode(errors="replace")
         old = self.clip.get()
-        if self.keys is not None:
-            self.keys.combo("ctrl+c")
-            time.sleep(0.15)
-        data = self.clip.get()
-        if old is not None and data != old:
-            threading.Thread(target=lambda: (time.sleep(0.5), self.clip.set(old)), daemon=True).start()
+        self.clip.set(self.SENTINEL)
+        time.sleep(0.25)  # que sueltes la tecla del atajo antes de "copiar"
+        self.keys.combo("ctrl+c" if IS_WINDOWS else "ctrl+insert")
+        data = None
+        for _ in range(12):  # hasta ~0.6 s a que la app copie
+            time.sleep(0.05)
+            cur = self.clip.get()
+            if cur and cur != self.SENTINEL:
+                data = cur
+                break
+        if old:
+            threading.Thread(target=lambda: (time.sleep(0.3), self.clip.set(old)), daemon=True).start()
+        if data is None:  # la app no copió (nada seleccionado o no admite Ctrl+Insert)
+            data = primary()
         return (data or b"").decode(errors="replace")
 
     def press_enter(self):

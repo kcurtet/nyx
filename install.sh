@@ -66,21 +66,29 @@ if [ "$SYSTEM" = 1 ]; then
     *" arch "*|*" cachyos "*|*" manjaro "*|*" endeavouros "*)
       $SUDO pacman -S --needed --noconfirm python python-evdev python-gobject portaudio wl-clipboard xclip \
         || die "falló pacman"
-      try_install pacman gtk4 gtk4-layer-shell tk ;;
+      try_install pacman gtk4 gtk4-layer-shell tk
+      # transcribir · audio del sistema · icono de bandeja · notificaciones · selector de ficheros
+      try_install pacman ffmpeg libpulse libayatana-appindicator libnotify zenity ;;
     *" debian "*|*" ubuntu "*)
       $SUDO apt-get update -qq
       $SUDO apt-get install -y -qq --no-install-recommends python3 python3-venv python3-evdev python3-gi libportaudio2 wl-clipboard xclip \
         || die "falló apt"
-      try_install apt gir1.2-gtk-4.0 gir1.2-gtk4layershell-1.0 libgtk4-layer-shell0 python3-tk ;;
+      try_install apt gir1.2-gtk-4.0 gir1.2-gtk4layershell-1.0 libgtk4-layer-shell0 python3-tk
+      try_install apt ffmpeg pulseaudio-utils gir1.2-ayatanaappindicator3-0.1 libnotify-bin zenity ;;
     *" fedora "*|*" rhel "*|*" centos "*)
       $SUDO dnf install -y -q python3 python3-evdev python3-gobject portaudio wl-clipboard xclip || die "falló dnf"
-      try_install dnf gtk4 gtk4-layer-shell python3-tkinter ;;
+      try_install dnf gtk4 gtk4-layer-shell python3-tkinter
+      command -v ffmpeg >/dev/null || try_install dnf ffmpeg-free
+      try_install dnf pulseaudio-utils libayatana-appindicator-gtk3 libnotify zenity ;;
     *" opensuse"*|*" suse "*)
       $SUDO zypper -q -n install python3 python3-evdev python3-gobject portaudio wl-clipboard xclip || die "falló zypper"
-      try_install zypper typelib-1_0-Gtk-4_0 gtk4-layer-shell typelib-1_0-Gtk4LayerShell-1_0 python3-tk ;;
+      try_install zypper typelib-1_0-Gtk-4_0 gtk4-layer-shell typelib-1_0-Gtk4LayerShell-1_0 python3-tk
+      command -v ffmpeg >/dev/null || try_install zypper ffmpeg-7
+      try_install zypper pulseaudio-utils typelib-1_0-AyatanaAppIndicator3-0_1 libnotify-tools zenity ;;
     *)
       warn "distro no reconocida: instala a mano python3 (>=3.10, con venv), python-evdev, python-gobject,"
-      warn "portaudio, wl-clipboard o xclip, y opcionalmente gtk4-layer-shell o tk." ;;
+      warn "portaudio, wl-clipboard o xclip, ffmpeg; y opcionalmente gtk4-layer-shell o tk,"
+      warn "parec (pulseaudio-utils), libayatana-appindicator, notify-send y zenity." ;;
   esac
 
   step "Permisos de teclado (tecla global + pegar en el cursor)"
@@ -167,11 +175,17 @@ EOF
 fi
 
 # ------------------------------------------------------------------ fin
+step "Comprobando el equipo (jerga doctor)"
+"$PREFIX/venv/bin/jerga" doctor || true
 echo
 echo "${c_g}${c_b}jerga instalado.${c_0}"
 case ":$PATH:" in *":$BIN:"*) ;; *) warn "añade $BIN a tu PATH";; esac
 echo "  Comprueba el equipo:  jerga doctor"
 echo "  Configuración:        $(jerga config 2>/dev/null || echo '~/.config/jerga/config.toml')"
 echo "  Uso: mantén Ctrl derecho, habla y suelta. La 1ª vez descarga el modelo (~1.6 GB)."
+echo "  Leer en voz alta: selecciona texto y pulsa Ctrl+0 (o di «léeme esto»)."
+command -v ollama >/dev/null && ! ollama list 2>/dev/null | grep -q lfm3-omni && \
+  echo "  Opcional, para jerga look (ver la pantalla): ollama pull lfm3-omni"
+command -v herdr >/dev/null && echo "  Orquestadora por voz: jerga trinity  (y luego «Trinity, …»)"
 [ -n "${NEED_RELOGIN:-}" ] && echo "  ${c_y}Cierra sesión y vuelve a entrar antes de usarlo (grupo input).${c_0}"
 true

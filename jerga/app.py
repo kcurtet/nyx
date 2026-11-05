@@ -189,7 +189,7 @@ def run():
         if speaker and speaker.speaking:  # segunda pulsación: callar
             hush()
             return
-        say(out.selection())
+        say(out.selection(cfg["tts"].get("selection", "copy")))
 
     def load_model():
         try:

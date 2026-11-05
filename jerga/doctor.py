@@ -1,162 +1,285 @@
-"""`jerga doctor`: comprueba el equipo y dice cómo arreglar lo que falte."""
+"""`jerga doctor`: comprueba el equipo, función a función, y dice cómo arreglar lo que falte.
+
+✘ = rompe algo básico (dictar, pegar, leer en voz alta, transcribir) · ! = opcional o mejorable.
+"""
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
-import sys
+from pathlib import Path
 
 from . import __version__, config
 
 OK, WARN, BAD = "✔", "!", "✘"
 
 
-def _line(mark, what, detail=""):
-    print(f"  {mark} {what}" + (f" — {detail}" if detail else ""))
+class Report:
+    def __init__(self):
+        self.problems = 0
+        self.warnings = 0
+
+    def section(self, title: str):
+        print(f"\n{title}")
+
+    def ok(self, what, detail=""):
+        self._line(OK, what, detail)
+
+    def warn(self, what, detail=""):
+        self.warnings += 1
+        self._line(WARN, what, detail)
+
+    def bad(self, what, detail=""):
+        self.problems += 1
+        self._line(BAD, what, detail)
+
+    @staticmethod
+    def _line(mark, what, detail):
+        print(f"  {mark} {what}" + (f" — {detail}" if detail else ""))
+
+
+def _pkg_hint(arch: str, debian: str, fedora: str = "") -> str:
+    """Nombre del paquete según la distro detectada."""
+    try:
+        ids = Path("/etc/os-release").read_text()
+    except OSError:
+        ids = ""
+    if any(x in ids for x in ("arch", "cachyos", "manjaro", "endeavouros")):
+        return f"sudo pacman -S {arch}"
+    if any(x in ids for x in ("debian", "ubuntu")):
+        return f"sudo apt install {debian}"
+    if "fedora" in ids and fedora:
+        return f"sudo dnf install {fedora}"
+    return f"instala {arch}"
+
+
+def _typelib(name: str) -> bool:
+    dirs = ["/usr/lib/girepository-1.0", "/usr/lib64/girepository-1.0",
+            "/usr/lib/x86_64-linux-gnu/girepository-1.0", "/usr/lib/aarch64-linux-gnu/girepository-1.0"]
+    dirs += [d for d in os.environ.get("GI_TYPELIB_PATH", "").split(":") if d]
+    return any(Path(d, name).exists() for d in dirs)
 
 
 def doctor() -> int:
-    problems = 0
-    print(f"jerga {__version__} · Python {platform.python_version()} · {platform.system()} {platform.release()}")
+    r = Report()
+    cfg = config.load()
+    linux = config.IS_LINUX
+    wl = bool(os.environ.get("WAYLAND_DISPLAY"))
     session = os.environ.get("XDG_SESSION_TYPE", "") or ("windows" if config.IS_WINDOWS else "?")
-    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
-    print(f"  sesión: {session} {desktop}".rstrip())
+    print(f"jerga {__version__} · Python {platform.python_version()} · {platform.system()} {platform.release()}"
+          f" · {session} {os.environ.get('XDG_CURRENT_DESKTOP', '')}".rstrip())
     print(f"  config: {config.ensure_config()}")
-    print(f"  log:    {config.LOG_PATH}\n")
+    print(f"  log:    {config.LOG_PATH}")
 
-    # ---- Whisper / GPU
-    print("Reconocimiento de voz")
+    # ------------------------------------------------------------- servicio
+    r.section("Servicio")
+    from .hotkey import is_running, send_command
+
+    if is_running():
+        try:
+            st = json.loads(send_command("status"))
+            r.ok(f"en marcha (jerga {st.get('version')})",
+                 f"Whisper {'listo en ' + str(st.get('stt_device')) if st.get('stt_ready') else 'cargando'}"
+                 f" · voz {'lista' if st.get('tts_ready') else 'no disponible'}")
+        except (OSError, ValueError):
+            r.ok("en marcha")
+    else:
+        r.warn("no está en marcha", "systemctl --user start jerga  (o ejecuta `jerga`)")
+
+    # -------------------------------------------------------------- dictado
+    r.section("Dictado")
     try:
         import ctranslate2
 
         n = ctranslate2.get_cuda_device_count()
         if n:
-            _line(OK, f"GPU CUDA detectada ({n})")
             try:
                 import ctypes
 
                 ctypes.CDLL("cublas64_12.dll" if config.IS_WINDOWS else "libcublas.so.12")
-                _line(OK, "cuBLAS 12 cargable")
+                r.ok(f"Whisper en GPU ({n} CUDA)")
             except OSError:
-                _line(WARN, "cuBLAS 12 no encontrado", "reinstala con el extra [cuda]; mientras tanto usará CPU")
+                r.warn("GPU detectada pero sin cuBLAS 12", "reinstala con el extra [cuda]; mientras, usará CPU")
         else:
-            _line(WARN, "sin GPU CUDA", "usará CPU (int8): más lento. Considera stt.model = \"small\" o \"medium\"")
+            r.warn("sin GPU CUDA", 'usará CPU (más lento); si va lento: [stt] model = "small"')
     except Exception as e:  # noqa: BLE001
-        problems += 1
-        _line(BAD, "faster-whisper/ctranslate2 no importa", str(e))
-
-    # ---- Micrófono
-    print("Micrófono")
+        r.bad("faster-whisper no carga", str(e))
     try:
         import sounddevice as sd
 
-        dev = sd.query_devices(kind="input")
-        _line(OK, f"entrada por defecto: {dev['name']}")
+        r.ok(f"micrófono: {sd.query_devices(kind='input')['name']}")
     except Exception as e:  # noqa: BLE001
-        problems += 1
-        hint = "instala portaudio (libportaudio2 / portaudio)" if config.IS_LINUX else ""
-        _line(BAD, "sin micrófono utilizable", f"{e} {hint}".strip())
+        r.bad("sin micrófono utilizable", f"{e} · {_pkg_hint('portaudio', 'libportaudio2', 'portaudio') if linux else ''}")
 
-    # ---- Tecla global
-    print("Tecla global")
     if config.IS_WINDOWS:
-        try:
-            import pynput  # noqa: F401
-
-            _line(OK, "pynput disponible")
-        except Exception as e:  # noqa: BLE001
-            problems += 1
-            _line(BAD, "pynput no disponible", str(e))
+        r.ok("tecla global con pynput")
     else:
         try:
             import evdev
 
-            readable = 0
-            for p in evdev.list_devices():
-                try:
-                    evdev.InputDevice(p)
-                    readable += 1
-                except OSError:
-                    pass
+            readable = sum(1 for p in evdev.list_devices() if _can_open(evdev, p))
             if readable:
-                _line(OK, f"{readable} dispositivos de entrada legibles")
+                r.ok(f"tecla global: {readable} dispositivos de entrada legibles ({cfg['hotkey']['key']})")
             else:
-                problems += 1
-                _line(BAD, "no puedo leer /dev/input",
-                      "sudo usermod -aG input $USER y vuelve a iniciar sesión (o usa `jerga toggle` en un atajo)")
+                r.bad("no puedo leer el teclado", "sudo usermod -aG input $USER y vuelve a iniciar sesión")
+            from .hotkey import ctrl_key_names, xkb_options
+
+            opts = xkb_options()
+            remap = [o for o in opts if o.startswith(("ctrl:", "caps:"))]
+            if remap:
+                keys = ", ".join(sorted(ctrl_key_names(opts, cfg["hotkey"].get("ctrl_keys"))))
+                r.ok(f"opciones de teclado {remap}", f"en los atajos, Ctrl = {keys}")
         except ImportError:
-            problems += 1
-            _line(BAD, "python-evdev no instalado", "instala python3-evdev / python-evdev")
+            r.bad("python-evdev no instalado", _pkg_hint("python-evdev", "python3-evdev", "python3-evdev"))
 
-    # ---- Pegar en el cursor
-    print("Escribir en el cursor")
+    # ---------------------------------------------------- pegar en el cursor
     if config.IS_WINDOWS:
-        _line(OK, "portapapeles + Ctrl+V (pyperclip/pynput)")
+        r.ok("pegar: portapapeles + Ctrl+V")
     else:
-        wl = bool(os.environ.get("WAYLAND_DISPLAY"))
         if not wl and not os.environ.get("DISPLAY"):
-            _line(WARN, "no hay sesión gráfica (ni WAYLAND_DISPLAY ni DISPLAY)")
+            r.warn("no hay sesión gráfica (ni WAYLAND_DISPLAY ni DISPLAY)")
         elif wl and shutil.which("wl-copy"):
-            _line(OK, "portapapeles: wl-clipboard")
+            r.ok("portapapeles: wl-clipboard")
         elif not wl and (shutil.which("xclip") or shutil.which("xsel")):
-            _line(OK, "portapapeles: xclip/xsel")
+            r.ok("portapapeles: xclip/xsel")
         else:
-            problems += 1
-            _line(BAD, "sin herramienta de portapapeles", "instala wl-clipboard (Wayland) o xclip (X11)")
+            r.bad("sin herramienta de portapapeles", _pkg_hint("wl-clipboard" if wl else "xclip", "wl-clipboard" if wl else "xclip"))
         if os.access("/dev/uinput", os.W_OK):
-            _line(OK, "teclado virtual: /dev/uinput escribible")
+            r.ok("teclado virtual (/dev/uinput) para pulsar Shift+Insert")
         elif shutil.which("ydotool") or (not wl and shutil.which("xdotool")):
-            _line(WARN, "/dev/uinput no escribible", "usaré ydotool/xdotool")
+            r.warn("/dev/uinput no escribible", "usaré ydotool/xdotool")
         else:
-            problems += 1
-            _line(BAD, "no puedo simular Shift+Insert",
-                  "ejecuta install.sh (añade regla udev para /dev/uinput) o instala ydotool")
+            r.bad("no puedo simular Shift+Insert", "ejecuta install.sh (regla udev de /dev/uinput) o instala ydotool")
 
-    # ---- Widget
-    print("Widget")
-    from .ui import available
-
-    av = available()
-    _line(OK if av[0] != "none" else WARN, f"backend: {av[0]}", "disponibles: " + ", ".join(av))
-    if av[0] == "none" and config.IS_LINUX:
-        print("     → instala gtk4-layer-shell + python-gobject (KDE/Sway/Hyprland) o python3-tk")
-
-    cfg = config.load()
-
-    # ---- Voz
-    print("Leer en voz alta")
+    # ------------------------------------------------------- leer en voz alta
+    r.section("Leer en voz alta")
     if not cfg["tts"]["enabled"]:
-        _line(WARN, "desactivado en la config")
+        r.warn("desactivado", "[tts] enabled = true")
     else:
         try:
             import ptts  # noqa: F401
 
-            _line(OK, f"phonon disponible · voz {cfg['tts']['voice']} · tecla {cfg['tts']['key']}")
+            r.ok(f"voz phonon · {cfg['tts']['voice']} · tecla {cfg['tts']['key']} (o «léeme esto»)")
         except Exception as e:  # noqa: BLE001
-            problems += 1
-            _line(BAD, "ptts no instalado", str(e))
+            r.bad("ptts no instalado", str(e))
         try:
             import sounddevice as sd
 
-            _line(OK, f"salida de audio: {sd.query_devices(kind='output')['name']}")
+            r.ok(f"salida de audio: {sd.query_devices(kind='output')['name']}")
         except Exception as e:  # noqa: BLE001
-            _line(WARN, "sin salida de audio", str(e))
+            r.warn("sin salida de audio", str(e))
 
-    # ---- LLM opcional
+    # ------------------------------------------------------------ transcribir
+    r.section("Transcribir")
+    if shutil.which("ffmpeg"):
+        r.ok("ffmpeg: ficheros de audio/vídeo y notas de voz")
+    else:
+        r.bad("sin ffmpeg: jerga transcribe y las notas de voz no funcionarán",
+              _pkg_hint("ffmpeg", "ffmpeg", "ffmpeg-free") if linux else "winget install Gyan.FFmpeg")
+    if linux:
+        if shutil.which("parec"):
+            r.ok("audio del sistema (jerga record --system/--both)")
+        else:
+            r.warn("sin parec: no se puede grabar el audio del PC", _pkg_hint("libpulse", "pulseaudio-utils", "pulseaudio-utils"))
+    if cfg["notes"]["enabled"]:
+        dirs = [d for d in cfg["notes"]["dirs"] if Path(os.path.expanduser(d)).is_dir()]
+        if dirs:
+            r.ok(f"notas de voz: vigilando {', '.join(dirs)}")
+        else:
+            r.warn("notas de voz: ninguna carpeta vigilada existe", f"[notes] dirs = {cfg['notes']['dirs']}")
+
+    # ------------------------------------------------------------- interfaz
+    r.section("Interfaz")
+    from .ui import available
+
+    av = available()
+    if av[0] != "none":
+        r.ok(f"widget: {av[0]}")
+    else:
+        r.warn("sin widget", "instala gtk4-layer-shell + python-gobject (KDE/Sway/Hyprland) o tk")
+    if cfg["tray"]["enabled"]:
+        import importlib.util
+
+        if importlib.util.find_spec("pystray") is None:
+            r.warn("icono de bandeja: falta pystray", "reinstala jerga")
+        elif linux and not (_typelib("AyatanaAppIndicator3-0.1.typelib") or _typelib("AppIndicator3-0.1.typelib")):
+            r.warn("icono de bandeja: falta AppIndicator",
+                   _pkg_hint("libayatana-appindicator", "gir1.2-ayatanaappindicator3-0.1", "libayatana-appindicator-gtk3"))
+        else:
+            r.ok("icono de bandeja")
+    if linux:
+        if shutil.which("notify-send"):
+            r.ok("notificaciones (notify-send)")
+        else:
+            r.warn("sin notify-send: no verás avisos de notas de voz ni sesiones", _pkg_hint("libnotify", "libnotify-bin", "libnotify"))
+        if not (shutil.which("kdialog") or shutil.which("zenity")):
+            r.warn("sin kdialog/zenity: «Transcribir fichero…» usará un selector básico", _pkg_hint("zenity", "zenity", "zenity"))
+
+    # ------------------------------------------------------- ver la pantalla
+    r.section("Ver la pantalla (jerga look)")
+    vc = cfg["vision"]
+    try:
+        import httpx
+
+        tags = httpx.get(vc["url"].rstrip("/") + "/api/tags", timeout=2).json().get("models", [])
+        names = {m.get("name", "") for m in tags} | {m.get("name", "").split(":")[0] for m in tags}
+        if vc["model"] in names or vc["model"].split(":")[0] in names:
+            r.ok(f"Ollama con {vc['model']}")
+        else:
+            r.warn(f"Ollama responde pero falta {vc['model']}", f"ollama pull {vc['model'].split(':')[0]}")
+    except Exception:  # noqa: BLE001
+        r.warn("Ollama no responde (opcional)", "instala Ollama y: ollama pull lfm3-omni")
+    if linux and not any(shutil.which(t) for t in ("spectacle", "grim", "gnome-screenshot", "maim", "scrot")):
+        r.warn("sin herramienta de captura", "instala spectacle (KDE), grim (wlroots) o gnome-screenshot")
+
+    # ---------------------------------------------------------------- Trinity
+    oc = cfg["orders"]
+    if oc["enabled"]:
+        r.section(f"{oc['agent'].capitalize()} (órdenes por voz)")
+        if not shutil.which("herdr"):
+            r.warn("herdr no instalado (opcional)", "https://herdr.dev — sin él no hay orquestadora")
+        else:
+            r.ok("herdr")
+            r.ok("pi") if shutil.which("pi") else r.warn("pi no instalado", "la orquestadora es una sesión de pi")
+            from .orders import Orchestrator, _ext_file, _pi_agent_dir
+
+            pkg = Path(os.path.expanduser(oc["pi_herdr"])) if oc.get("pi_herdr") else \
+                _pi_agent_dir() / "git" / "github.com" / "kcurtet" / "pi-herdr"
+            if _ext_file(pkg):
+                r.ok(f"pi-herdr: {pkg}")
+            else:
+                r.warn("pi-herdr no encontrado: sin avisos de agentes", "pi install github:kcurtet/pi-herdr")
+            st = Orchestrator(oc).status()
+            if st:
+                r.ok(f"{oc['agent']} en marcha ({st})", f"dile «{oc['agent'].capitalize()}, …»")
+            else:
+                r.warn(f"{oc['agent']} no está en marcha", f"jerga {oc['agent']}")
+
+    # --------------------------------------------------------- LLM opcional
     if cfg["llm"]["enabled"]:
-        print("Corrección con LLM")
+        r.section("Corrección con LLM")
         try:
             import httpx
 
             httpx.get(cfg["llm"]["url"], timeout=2)
-            _line(OK, f"Ollama responde en {cfg['llm']['url']}")
+            r.ok(f"Ollama responde en {cfg['llm']['url']}")
         except Exception as e:  # noqa: BLE001
-            _line(WARN, "Ollama no responde", str(e))
+            r.warn("Ollama no responde", str(e))
 
     print()
-    print("Todo listo." if not problems else f"{problems} problema(s) por resolver.")
-    return 1 if problems else 0
+    if r.problems:
+        print(f"{r.problems} problema(s) por resolver, {r.warnings} aviso(s).")
+    elif r.warnings:
+        print(f"Todo lo básico está listo. {r.warnings} aviso(s) sobre extras opcionales.")
+    else:
+        print("Todo listo.")
+    return 1 if r.problems else 0
 
 
-if __name__ == "__main__":
-    sys.exit(doctor())
+def _can_open(evdev, path) -> bool:
+    try:
+        evdev.InputDevice(path)
+        return True
+    except OSError:
+        return False
