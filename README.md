@@ -91,6 +91,21 @@ jerga transcribe nota.ogg --format srt       # o txt; --out DIR; --stdout
 
 Cualquier formato que lea ffmpeg (mp3, ogg/opus de WhatsApp, m4a, mp4, mkv…), con tu vocabulario técnico y tus reemplazos. Usa el Whisper que ya tiene cargado el servicio: 34 s de audio en ~0,7 s en GPU. También desde el icono de la bandeja → *Transcribir fichero…*
 
+### Sesiones largas en vivo
+
+```sh
+jerga record              # micrófono
+jerga record --system     # lo que suena en el PC (una llamada, un vídeo, un curso)
+jerga record --both       # los dos: sale etiquetado «Yo:» / «Ellos:»
+jerga record stop         # termina y te dice dónde está el .md
+```
+
+Trocea en silencios (~25 s), transcribe con el Whisper del servicio y reescribe el `.md` tras cada trozo: puedes abrirlo mientras graba. Por defecto en `~/Documentos/jerga/`. Con `--both` usa auriculares (si no, el micro también recoge lo que suena). Ignora el silencio para que Whisper no se invente frases.
+
+### Notas de voz
+
+Las notas de voz **nuevas** (`.ogg`, `.opus`, `.m4a`) que aparezcan en `~/Descargas` se transcriben solas: el `.md` queda al lado y te llega una notificación con el principio del texto. Las que ya tenías no se tocan. Carpetas y extensiones en `[notes]`.
+
 ## Icono en la bandeja
 
 El servicio pone un micrófono en la bandeja del sistema que cambia de color: **gris** listo · **rojo** grabando · **azul** trabajando · **morado** leyendo · **naranja** sin servicio. Menú: dictar, leer selección/callar, transcribir fichero, Trinity, configuración, log y reiniciar. Desactívalo con `[tray] enabled = false`.

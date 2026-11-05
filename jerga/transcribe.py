@@ -41,12 +41,25 @@ def decode(path: str | Path) -> np.ndarray:
     return np.frombuffer(r.stdout, np.int16).astype(np.float32) / 32768
 
 
+SILENCE_RMS = 0.002
+
+
+def is_hallucination(seg) -> bool:
+    """Heurística estándar de Whisper: probable no-voz con poca confianza, o texto en bucle."""
+    nsp = getattr(seg, "no_speech_prob", 0.0) or 0.0
+    lp = getattr(seg, "avg_logprob", 0.0) or 0.0
+    cr = getattr(seg, "compression_ratio", 0.0) or 0.0
+    return (nsp > 0.6 and lp < -0.7) or cr > 2.6
+
+
 def transcribe_audio(stt, audio: np.ndarray, fix=None, offset: float = 0.0, speaker: str | None = None) -> list[Segment]:
     """Audio largo → segmentos. `stt` es un jerga.stt.Transcriber ya cargado."""
-    if audio.size < SR * 0.3:
-        return []
+    if audio.size < SR * 0.3 or float(np.sqrt(np.mean(audio**2))) < SILENCE_RMS:
+        return []  # silencio: Whisper se inventaría frases ("…protección contra mordiscos")
     out = []
     for s in stt.segments(audio):
+        if is_hallucination(s):
+            continue
         text = s.text.strip()
         if fix:
             text = fix(text)

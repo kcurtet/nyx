@@ -74,6 +74,17 @@ DEFAULTS: dict = {
     },
     "ui": {"backend": "auto"},  # auto | gtk | tk | none
     "tray": {"enabled": True},  # icono en la bandeja del sistema
+    "record": {
+        "dir": "",  # "" = ~/Documentos/jerga (carpeta de documentos de tu sistema)
+        "labels": ["Yo", "Ellos"],  # micrófono / audio del sistema cuando se graban los dos
+        "mic_device": None,
+    },
+    "notes": {
+        # Transcribe solo las notas de voz NUEVAS que aparezcan aquí (deja el .md al lado).
+        "enabled": True,
+        "dirs": ["~/Descargas"],
+        "extensions": [".ogg", ".opus", ".oga", ".m4a"],
+    },
     "vision": {
         # jerga look: captura de pantalla → modelo de visión local (Ollama)
         "model": "lfm3-omni:latest",

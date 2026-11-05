@@ -55,10 +55,16 @@ def icon_image(state: str, size: int = 64):
     return img
 
 
+def stamp_s(t: float) -> str:
+    m, s = divmod(int(t), 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
+
+
 def state_of(st: dict | None) -> str:
     if st is None:
         return "down"
-    if st.get("recording"):
+    if st.get("recording") or st.get("session"):
         return "recording"
     if st.get("speaking"):
         return "speaking"
@@ -159,6 +165,8 @@ def main() -> int:
 
     def title_text(_item=None) -> str:
         st = current["status"]
+        if st and st.get("session"):
+            return f"jerga · grabando sesión ({st['session']['kind']}) {stamp_s(st['session']['elapsed'])}"
         base = f"jerga · {LABELS[current['state']]}"
         if st and st.get("stt_device"):
             base += f" ({st['stt_device']})"
@@ -180,6 +188,23 @@ def main() -> int:
         send("hush" if st.get("speaking") else "read")
 
     up = lambda _item=None: current["state"] != "down"  # noqa: E731
+    in_session = lambda _item=None: bool((current["status"] or {}).get("session"))  # noqa: E731
+    no_session = lambda _item=None: up() and not in_session()  # noqa: E731
+
+    def record(*flags):
+        def go(_icon=None, _item=None):
+            r = subprocess.run(jerga_cmd("record", *flags), capture_output=True, text=True)
+            if r.returncode != 0:
+                notify("No se pudo grabar", (r.stderr or r.stdout).strip()[:300])
+        return go
+
+    def record_stop(_icon=None, _item=None):
+        def work():
+            r = subprocess.run(jerga_cmd("record", "stop"), capture_output=True, text=True)
+            path = r.stdout.strip()
+            if r.returncode == 0 and path:
+                open_path(path)
+        threading.Thread(target=work, daemon=True).start()
     has_herdr = shutil.which("herdr") is not None
 
     menu = Menu(
@@ -188,6 +213,12 @@ def main() -> int:
         Item(dictate_label, lambda: send("toggle"), enabled=up, default=True),
         Item(speak_label, speak_action, enabled=up),
         Item("Transcribir fichero…", transcribe, enabled=up),
+        Item("Grabar sesión", Menu(
+            Item("Micrófono", record(), enabled=no_session),
+            Item("Audio del PC", record("--system"), enabled=no_session),
+            Item("Micrófono + audio del PC", record("--both"), enabled=no_session),
+        ), visible=lambda _i=None: not in_session()),
+        Item("Parar sesión y abrir", record_stop, visible=in_session),
         *([Item("Trinity", Menu(
             Item("Arrancar Trinity", trinity_start, enabled=up),
             Item("Ir a su panel", trinity_focus),
@@ -211,8 +242,9 @@ def main() -> int:
                 icon.stop()  # el servicio se fue: el nuevo arrancará su propio icono
                 return
             new = state_of(st)
+            sess_changed = bool((st or {}).get("session")) != bool((current["status"] or {}).get("session"))
             current["status"] = st
-            if new != current["state"]:
+            if new != current["state"] or sess_changed:
                 current["state"] = new
                 icon.icon = icon_image(new)
                 icon.title = title_text()

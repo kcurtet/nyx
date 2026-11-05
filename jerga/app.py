@@ -8,6 +8,8 @@ Uso:
   jerga read            lee el texto seleccionado (igual que Ctrl+;)
   jerga hush            calla
   jerga transcribe F…  audio/vídeo → .md con marcas de tiempo (--format srt|txt, --out DIR, --stdout)
+  jerga record          graba una sesión larga y la va transcribiendo (--system: audio del PC, --both: micro + PC)
+  jerga record stop     termina la sesión (y jerga record status)
   jerga look "pregunta" mira la pantalla con un modelo de visión local (--window: ventana activa, --all: todo)
   jerga trinity         arranca la orquestadora (pi en una pestaña de herdr)
   jerga order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
@@ -218,7 +220,64 @@ def run():
                 "dictation_key": cfg["hotkey"]["key"],
                 "read_key": cfg["tts"]["key"],
                 "orders": cfg["orders"]["agent"] if orch else None,
+                "session": ({"path": str(session["s"].path), "elapsed": session["s"].elapsed,
+                             "kind": session["s"].kind} if session["s"] else None),
             })
+
+        # ------------------------------------------------- sesiones y notas de voz
+        session = {"s": None}
+        session_lock = threading.Lock()
+
+        def notify(title: str, body: str = ""):
+            import shutil
+            import subprocess
+
+            if config.IS_LINUX and shutil.which("notify-send"):
+                subprocess.Popen(["notify-send", "-a", "jerga", "-i", "audio-input-microphone", title, body])
+
+        def record_start(payload: str) -> str:
+            import json
+            from pathlib import Path
+
+            from .session import Session, default_dir
+
+            req = json.loads(payload or "{}")
+            with session_lock:
+                if session["s"]:
+                    return json.dumps({"ok": False, "error": f"ya hay una sesión grabando en {session['s'].path}"})
+                rc = cfg["record"]
+                out = Path(req["out"]).expanduser() if req.get("out") else \
+                    default_dir(rc) / time.strftime("sesion-%Y-%m-%d-%H%M.md")
+                try:
+                    s = Session(stt, post.apply_rules, req.get("mic", True), req.get("system", False), out,
+                                labels=tuple(rc["labels"]), mic_device=rc["mic_device"])
+                    s.start()
+                except Exception as e:  # noqa: BLE001
+                    return json.dumps({"ok": False, "error": str(e)})
+                session["s"] = s
+            notify("Grabando sesión", f"{s.kind} → {out}")
+            return json.dumps({"ok": True, "path": str(out), "kind": s.kind})
+
+        def record_stop(_payload: str = "") -> str:
+            import json
+
+            with session_lock:
+                s, session["s"] = session["s"], None
+            if s is None:
+                return json.dumps({"ok": False, "error": "no hay ninguna sesión grabando"})
+            path = s.stop()
+            notify("Sesión guardada", f"{len(s.segments)} fragmentos → {path}")
+            return json.dumps({"ok": True, "path": str(path), "segments": len(s.segments), "elapsed": s.elapsed})
+
+        if cfg["notes"]["enabled"]:
+            from .session import NotesWatcher, note_preview
+            from .transcribe import transcribe_file
+
+            def note_done(src, md):
+                notify(f"Nota de voz: {src.name}", note_preview(md))
+
+            NotesWatcher(cfg["notes"]["dirs"], cfg["notes"]["extensions"],
+                         lambda p: transcribe_file(stt, post.apply_rules, p)[0], notify=note_done).start()
 
         def transcribe_req(payload: str) -> str:
             import json
@@ -238,6 +297,7 @@ def run():
                        "say": say, "say-brief": lambda t: say(t, brief=True),
                        "read": read_selection, "hush": hush, "order": send_order,
                        "transcribe": transcribe_req, "status": status,
+                       "record-start": record_start, "record-stop": record_stop,
                        "ping": lambda: None}).start()
 
     def start_tray():
@@ -293,6 +353,8 @@ def keys():
 
 
 def main():
+    from pathlib import Path
+
     args = sys.argv[1:]
     cmd = args[0] if args else "run"
     if cmd in ("-h", "--help", "help"):
@@ -309,6 +371,32 @@ def main():
         from .orders import launch
 
         sys.exit(launch(config.load()["orders"]))
+    if cmd == "record":
+        import json
+
+        from .hotkey import send_command
+
+        sub = args[1] if len(args) > 1 else ""
+        try:
+            if sub == "stop":
+                res = json.loads(send_command("record-stop", timeout=None))
+            elif sub == "status":
+                st = json.loads(send_command("status")).get("session")
+                print(f"grabando ({st['kind']}) desde hace {int(st['elapsed'])} s → {st['path']}" if st else "no hay sesión grabando")
+                return
+            else:
+                flags = set(args[1:])
+                req = {"mic": "--system" not in flags or "--both" in flags,
+                       "system": "--system" in flags or "--both" in flags}
+                if "--out" in args:
+                    req["out"] = str(Path(args[args.index("--out") + 1]).expanduser().resolve())
+                res = json.loads(send_command("record-start", json.dumps(req), timeout=30))
+        except OSError:
+            sys.exit("jerga no está en marcha")
+        if not res.get("ok"):
+            sys.exit(f"jerga record: {res.get('error')}")
+        print(res["path"])
+        return
     if cmd in ("start", "stop", "toggle", "cancel", "read", "hush", "say", "order"):
         from .hotkey import send_command
 

@@ -44,3 +44,63 @@ def test_tray_estado_e_icono():
     assert state_of({"stt_ready": True}) == "idle"
     img = icon_image("recording", 64)
     assert img.size == (64, 64) and img.getpixel((32, 4))[:3] == (255, 69, 58)
+
+
+# ---------------------------------------------------------------- sesiones y notas
+import time as _time
+
+import numpy as np
+
+from jerga.session import SR, Chunker, NotesWatcher, quiet_cut
+
+
+def test_quiet_cut_busca_el_silencio():
+    a = np.random.default_rng(0).normal(0, 0.3, SR * 10).astype(np.float32)
+    a[int(SR * 7.0): int(SR * 7.3)] = 0  # silencio en 7.0-7.3 s
+    cut = quiet_cut(a)
+    assert SR * 7.0 <= cut <= SR * 7.3
+
+
+def test_chunker_trozos_con_offset():
+    got = []
+    c = Chunker(lambda audio, off, who: got.append((audio.size / SR, off, who)), "Yo")
+    noise = np.random.default_rng(1).normal(0, 0.2, int(SR * 0.1)).astype(np.float32)
+    for _ in range(300):  # 30 s
+        c.feed(noise)
+    c.flush()
+    assert len(got) == 2 and got[0][1] == 0 and got[0][2] == "Yo"
+    assert abs(got[1][1] - got[0][0]) < 1e-6  # el 2º empieza donde acabó el 1º
+    assert abs(sum(g[0] for g in got) - 30) < 0.01
+
+
+def test_notas_solo_nuevas_y_estables(tmp_path):
+    old = tmp_path / "vieja.ogg"
+    old.write_bytes(b"x")
+    import os
+    os.utime(old, (_time.time() - 3600, _time.time() - 3600))
+    done = []
+    w = NotesWatcher([str(tmp_path)], [".ogg"], lambda p: done.append(p.name) or p.with_suffix(".md"))
+    nueva = tmp_path / "nueva.ogg"
+    nueva.write_bytes(b"audio")
+    assert w.step() == [] and done == []          # 1ª pasada: se apunta el tamaño
+    assert len(w.step()) == 1 and done == ["nueva.ogg"]  # 2ª: estable → se transcribe
+    assert w.step() == [] and done == ["nueva.ogg"]      # nunca dos veces; la vieja nunca
+    (tmp_path / "otra.mp4").write_bytes(b"v")
+    assert w.step() == []                                # extensión no vigilada
+
+
+def test_silencio_y_alucinaciones():
+    from types import SimpleNamespace as NS
+
+    from jerga.transcribe import is_hallucination, transcribe_audio
+
+    class FakeSTT:
+        def segments(self, audio):
+            return [NS(start=0, end=1, text="Hola.", no_speech_prob=0.1, avg_logprob=-0.2, compression_ratio=1.2),
+                    NS(start=1, end=2, text="Esto me hace más protección contra mordiscos.", no_speech_prob=0.8,
+                       avg_logprob=-1.1, compression_ratio=1.3)]
+
+    assert transcribe_audio(FakeSTT(), np.zeros(SR * 5, np.float32)) == []  # silencio: ni se intenta
+    voz = np.random.default_rng(2).normal(0, 0.1, SR * 2).astype(np.float32)
+    assert [s.text for s in transcribe_audio(FakeSTT(), voz)] == ["Hola."]
+    assert is_hallucination(NS(no_speech_prob=0.1, avg_logprob=-0.2, compression_ratio=3.0))
