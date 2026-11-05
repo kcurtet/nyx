@@ -90,3 +90,22 @@ def test_palabra_sola_no_hace_nada():
     for w in ("Envía.", "Borra eso.", "Interrogante.", "Código."):
         r = p(w)
         assert (r.text, r.send, r.discard) == (w, False, False)
+
+
+# ---------------------------------------------------------------- órdenes
+from jerga.orders import match_wake  # noqa: E402
+
+W = DEFAULTS["orders"]["wake_words"]
+
+
+def test_palabra_de_activacion():
+    assert match_wake("Capitana, ve al repo jerga y cambia la imagen.", W) == "Ve al repo jerga y cambia la imagen."
+    assert match_wake("capitana ¿qué hace el agente de screeps?", W) == "¿qué hace el agente de screeps?"
+    assert match_wake("Oye, capitana: sí, hazlo.", W) == "Sí, hazlo."
+    assert match_wake("Capitana.", W) == ""
+
+
+def test_no_es_orden():
+    assert match_wake("La capitana del equipo dijo que sí.", W) is None
+    assert match_wake("Capitanas del mundo.", W) is None
+    assert match_wake("Haz un git push.", W) is None

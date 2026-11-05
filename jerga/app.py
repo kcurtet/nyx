@@ -6,6 +6,8 @@ Uso:
   jerga say "texto"     lee el texto en voz alta (también por stdin: echo hola | jerga say)
   jerga read            lee el texto seleccionado (igual que Ctrl+;)
   jerga hush            calla
+  jerga capitana        arranca la orquestadora (pi en una pestaña de herdr)
+  jerga order "texto"   manda una orden a la capitana (igual que decir «Capitana, …»)
   jerga doctor          comprueba que todo está listo en este equipo
   jerga keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
   jerga config          muestra la ruta del archivo de configuración
@@ -28,6 +30,7 @@ def run():
     from .output import Output
     from .postprocess import PostProcessor
     from .stt import Transcriber
+    from .orders import Orchestrator, match_wake
     from .tts import Speaker
 
     if is_running():
@@ -42,6 +45,7 @@ def run():
     out = Output(cfg["output"])
     ui = ui_mod.create(cfg["ui"]["backend"])
     speaker = Speaker(cfg["tts"]) if cfg["tts"]["enabled"] else None
+    orch = Orchestrator(cfg["orders"]) if cfg["orders"]["enabled"] else None
     lock = threading.Lock()
     state = {"recording": False}
 
@@ -85,9 +89,14 @@ def run():
             t0 = time.monotonic()
             raw = stt.transcribe(audio)
             t1 = time.monotonic()
+            log(f"[stt {t1 - t0:.2f}s] {raw!r}")
+            if orch is not None:
+                order = match_wake(post.apply_rules(raw), cfg["orders"]["wake_words"])
+                if order is not None:
+                    send_order(order)
+                    return
             res = post.process(raw)
             text = res.text
-            log(f"[stt {t1 - t0:.2f}s] {raw!r}")
             if text != raw or res.send or res.discard:
                 flags = (" [envía]" if res.send else "") + (" [descartado]" if res.discard else "")
                 log(f"[fix {time.monotonic() - t1:.2f}s] {text!r}{flags}")
@@ -107,6 +116,25 @@ def run():
 
     def toggle():
         (stop if state["recording"] else start)()
+
+    # ------------------------------------------------------------- órdenes
+    def send_order(order: str):
+        name = cfg["orders"]["agent"]
+        if orch is None:
+            log("[orden] desactivado en la config ([orders] enabled = false)")
+            return
+        order = order.strip()
+        if not order:
+            ui.call(ui.done, f"{name}: ¿sí?")
+            say("Dime.")
+            return
+        log(f"[orden → {name}] {order!r}")
+        ok, msg = orch.send(order)
+        if ok:
+            ui.call(ui.done, f"→ {name}: {order}")
+        else:
+            ui.call(ui.error, msg)
+            say(msg)
 
     # ------------------------------------------------------------- leer en voz alta
     def say(text: str):
@@ -165,7 +193,7 @@ def run():
         except Exception as e:  # noqa: BLE001
             log(f"[hotkey] no disponible ({e}); usa `jerga toggle` desde un atajo del escritorio")
         ControlServer({"start": start, "stop": stop, "toggle": toggle, "cancel": cancel,
-                       "say": say, "read": read_selection, "hush": hush,
+                       "say": say, "read": read_selection, "hush": hush, "order": send_order,
                        "ping": lambda: None}).start()
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -213,14 +241,18 @@ def main():
     if cmd in ("-V", "--version", "version"):
         print(__version__)
         return
-    if cmd in ("start", "stop", "toggle", "cancel", "read", "hush", "say"):
+    if cmd == "capitana":
+        from .orders import launch
+
+        sys.exit(launch(config.load()["orders"]))
+    if cmd in ("start", "stop", "toggle", "cancel", "read", "hush", "say", "order"):
         from .hotkey import send_command
 
         payload = ""
-        if cmd == "say":
+        if cmd in ("say", "order"):
             payload = " ".join(args[1:]) if len(args) > 1 else ("" if sys.stdin.isatty() else sys.stdin.read())
             if not payload.strip():
-                sys.exit('uso: jerga say "texto"   o   echo "texto" | jerga say')
+                sys.exit(f'uso: jerga {cmd} "texto"   o   echo "texto" | jerga {cmd}')
         try:
             print(send_command(cmd, payload))
         except OSError:

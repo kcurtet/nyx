@@ -73,6 +73,13 @@ DEFAULTS: dict = {
         "strip_final_period": False,
     },
     "ui": {"backend": "auto"},  # auto | gtk | tk | none
+    "orders": {
+        "enabled": True,
+        # Si el dictado empieza por una de estas palabras, es una orden para la orquestadora.
+        "wake_words": ["capitana"],
+        "agent": "capitana",  # nombre del agente en herdr
+        "model": "",  # modelo de pi para la capitana ("" = el que uses por defecto)
+    },
     "tts": {
         "enabled": True,
         "key": "ctrl+;",  # leer el texto seleccionado (otra vez: callar)

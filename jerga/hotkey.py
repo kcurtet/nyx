@@ -266,7 +266,7 @@ class ControlServer(threading.Thread):
             except OSError:
                 pass
         if fn:
-            fn(payload) if cmd.strip() == "say" else fn()
+            fn(payload) if cmd.strip() in ("say", "order") else fn()
 
 
 def send_command(cmd: str, payload: str = "") -> str:
