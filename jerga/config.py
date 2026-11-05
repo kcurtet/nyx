@@ -46,9 +46,10 @@ DEFAULTS: dict = {
     },
     "replacements": {},
     "commands": {
-        # Si la frase termina con una de estas palabras, se quita y se convierte en pregunta.
-        "question_words": ["pregunta"],
-        "spanish_open_question": True,  # añade "¿" al principio
+        # Si la frase termina con una de estas palabras, se quita y se ponen los signos.
+        "question_words": ["interrogante", "signo de interrogación"],
+        "exclamation_words": ["exclamación", "signo de exclamación", "punto de exclamación"],
+        "spanish_open_marks": True,  # añade "¿" / "¡" al principio
     },
     "llm": {
         "enabled": False,

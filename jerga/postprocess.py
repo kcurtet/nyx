@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from .config import log
 
@@ -9,24 +10,41 @@ from .config import log
 _TRAILING_PUNCT = " \t.,;:!¡?¿…"
 
 
-def apply_voice_commands(text: str, commands: dict) -> str:
-    """Comandos dichos al final de la frase.
+def _fold(s: str) -> str:
+    """Minúsculas y sin tildes, carácter a carácter (conserva las posiciones)."""
+    out = []
+    for c in s:
+        d = unicodedata.normalize("NFD", c)
+        out.append((d[0] if d else c).lower())
+    return "".join(out)
 
-    "¿has hecho el push pregunta" → "¿Has hecho el push?"
+
+# comando → (signo de apertura, signo de cierre)
+_MARKS = {"question_words": ("¿", "?"), "exclamation_words": ("¡", "!")}
+
+
+def apply_voice_commands(text: str, commands: dict) -> str:
+    """Palabras dichas al final de la frase que la convierten en pregunta o exclamación.
+
+    "has hecho el push interrogante"  → "¿Has hecho el push?"
+    "ya funciona el build exclamación" → "¡Ya funciona el build!"
     """
-    words = commands.get("question_words") or []
+    open_marks = commands.get("spanish_open_marks", commands.get("spanish_open_question", True))
     stripped = text.rstrip(_TRAILING_PUNCT)
-    for w in sorted(words, key=len, reverse=True):
-        m = re.search(r"(?:^|[\s,;:])" + re.escape(w) + r"$", stripped, re.IGNORECASE)
+    folded = _fold(stripped)
+    triggers = [(_fold(w), key) for key in _MARKS for w in (commands.get(key) or [])]
+    for w, key in sorted(triggers, key=lambda t: -len(t[0])):
+        m = re.search(r"(?:^|[\s,;:])" + re.escape(w) + r"$", folded)
         if not m:
             continue
         body = stripped[: m.start()].rstrip(_TRAILING_PUNCT)
         if not body:
-            return text  # solo dijo "pregunta": lo dejamos tal cual
+            return text  # solo dijo la palabra: la dejamos tal cual
+        opening, closing = _MARKS[key]
         body = body.lstrip("¿¡ ")
-        if commands.get("spanish_open_question", True):
-            body = "¿" + body[:1].upper() + body[1:]
-        return body + "?"
+        if open_marks:
+            body = opening + body[:1].upper() + body[1:]
+        return body + closing
     return text
 
 

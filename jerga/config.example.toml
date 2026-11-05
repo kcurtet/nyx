@@ -48,11 +48,12 @@ vocabulary = [
 "pool request" = "pull request"
 
 [commands]
-# Termina la frase diciendo una de estas palabras y se convierte en pregunta:
-#   "has hecho el push a main pregunta"  →  "¿Has hecho el push a main?"
-# Ojo: "tengo una pregunta" también se convertiría. Usa otra palabra si te molesta.
-question_words = ["pregunta"]
-spanish_open_question = true   # añadir "¿" al principio
+# Termina la frase con una de estas palabras y se pone el signo (se ignoran tildes):
+#   "has hecho el push a main interrogante"  →  "¿Has hecho el push a main?"
+#   "ya pasa el build exclamación"           →  "¡Ya pasa el build!"
+question_words = ["interrogante", "signo de interrogación"]
+exclamation_words = ["exclamación", "signo de exclamación", "punto de exclamación"]
+spanish_open_marks = true   # añadir "¿" / "¡" al principio
 
 [llm]
 # Segunda pasada con un LLM local que corrige SOLO términos técnicos.
