@@ -50,6 +50,13 @@ DEFAULTS: dict = {
         "question_words": ["interrogante", "signo de interrogación"],
         "exclamation_words": ["exclamación", "signo de exclamación", "punto de exclamación"],
         "spanish_open_marks": True,  # añade "¿" / "¡" al principio
+        "quote_words": ["entre comillas"],
+        "lowercase_words": ["en minúsculas"],
+        "send_words": ["envía", "enviar"],
+        "discard_words": ["borra eso", "bórralo"],
+        "code_words": ["código"],
+        "newline_words": ["nueva línea", "salto de línea"],
+        "paragraph_words": ["punto y aparte"],
     },
     "llm": {
         "enabled": False,

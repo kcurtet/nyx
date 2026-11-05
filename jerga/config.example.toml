@@ -48,12 +48,27 @@ vocabulary = [
 "pool request" = "pull request"
 
 [commands]
-# Termina la frase con una de estas palabras y se pone el signo (se ignoran tildes):
-#   "has hecho el push a main interrogante"  →  "¿Has hecho el push a main?"
-#   "ya pasa el build exclamación"           →  "¡Ya pasa el build!"
+# Palabras que no se escriben, sino que hacen algo. Se ignoran tildes y mayúsculas.
+# Al final de la frase (se pueden encadenar: "…interrogante envía"):
+#   "has hecho el push interrogante"   →  ¿Has hecho el push?
+#   "ya pasa el build exclamación"     →  ¡Ya pasa el build!
+#   "hola mundo entre comillas"        →  "hola mundo"
+#   "feature login en minúsculas"      →  feature login
+#   "revisa los logs envía"            →  pega y pulsa Enter
+#   "… borra eso"                      →  no pega nada
+# Al principio:  "código git status"   →  `git status`
+# En medio:      "nueva línea", "punto y aparte"
+# Para desactivar uno, déjalo vacío: send_words = []
 question_words = ["interrogante", "signo de interrogación"]
 exclamation_words = ["exclamación", "signo de exclamación", "punto de exclamación"]
 spanish_open_marks = true   # añadir "¿" / "¡" al principio
+quote_words = ["entre comillas"]
+lowercase_words = ["en minúsculas"]
+send_words = ["envía", "enviar"]
+discard_words = ["borra eso", "bórralo"]
+code_words = ["código"]
+newline_words = ["nueva línea", "salto de línea"]
+paragraph_words = ["punto y aparte"]
 
 [llm]
 # Segunda pasada con un LLM local que corrige SOLO términos técnicos.

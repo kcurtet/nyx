@@ -145,7 +145,7 @@ class XdotoolKeys:
         self.env = clean_child_env()
 
     def combo(self, combo):
-        names = {"insert": "Insert", "ctrl": "ctrl", "shift": "shift", "alt": "alt", "super": "super"}
+        names = {"insert": "Insert", "enter": "Return", "ctrl": "ctrl", "shift": "shift", "alt": "alt", "super": "super"}
         subprocess.run(["xdotool", "key", "--clearmodifiers",
                         "+".join(names.get(k, k) for k in _parse_combo(combo))], env=self.env, check=False)
 
@@ -160,7 +160,7 @@ class WtypeKeys:  # compositores wlroots (Sway, Hyprland…)
     def combo(self, combo):
         keys = _parse_combo(combo)
         mods, key = keys[:-1], keys[-1]
-        names = {"insert": "Insert", "v": "v"}
+        names = {"insert": "Insert", "enter": "Return", "v": "v"}
         args = ["wtype"]
         for m in mods:
             args += ["-M", m]
@@ -180,7 +180,7 @@ class PynputKeys:
         self.kb, self.Key = Controller(), Key
 
     def _k(self, name):
-        alias = {"ctrl": "ctrl", "shift": "shift", "alt": "alt", "super": "cmd", "insert": "insert"}
+        alias = {"ctrl": "ctrl", "shift": "shift", "alt": "alt", "super": "cmd", "insert": "insert", "enter": "enter"}
         n = alias.get(name, name)
         return getattr(self.Key, n) if len(n) > 1 else n
 
@@ -232,12 +232,19 @@ class Output:
         log(f"[output] portapapeles={type(self.clip).__name__ if self.clip else '—'} "
             f"teclas={type(self.keys).__name__ if self.keys else '—'}")
 
-    def finalize(self, text: str) -> str:
+    def finalize(self, text: str, send: bool = False) -> str:
         if self.cfg["strip_final_period"] and text.endswith(".") and not text.endswith(".."):
             text = text[:-1]
-        if self.cfg["trailing_space"] and text:
+        # Sin espacio final si vamos a enviar o si ya acaba en salto de línea.
+        if self.cfg["trailing_space"] and text and not send and not text.endswith("\n"):
             text += " "
         return text
+
+    def press_enter(self):
+        if self.keys is None:
+            return
+        time.sleep(0.15)  # dar tiempo a que la app procese el pegado
+        self.keys.combo("enter")
 
     def emit(self, text: str):
         if not text:

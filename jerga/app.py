@@ -78,15 +78,22 @@ def run():
             t0 = time.monotonic()
             raw = stt.transcribe(audio)
             t1 = time.monotonic()
-            text = post(raw)
+            res = post.process(raw)
+            text = res.text
             log(f"[stt {t1 - t0:.2f}s] {raw!r}")
-            if text != raw:
-                log(f"[fix {time.monotonic() - t1:.2f}s] {text!r}")
+            if text != raw or res.send or res.discard:
+                flags = (" [envía]" if res.send else "") + (" [descartado]" if res.discard else "")
+                log(f"[fix {time.monotonic() - t1:.2f}s] {text!r}{flags}")
+            if res.discard:
+                ui.call(ui.done, "descartado")
+                return
             if not text:
                 ui.call(ui.error, "no se ha oído nada")
                 return
-            out.emit(out.finalize(text))
-            ui.call(ui.done, text)
+            out.emit(out.finalize(text, res.send))
+            if res.send:
+                out.press_enter()
+            ui.call(ui.done, text + ("  ⏎" if res.send else ""))
         except Exception as e:  # noqa: BLE001
             log("[error]", repr(e))
             ui.call(ui.error, str(e)[:60])

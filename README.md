@@ -64,6 +64,23 @@ Revisa GPU, micrófono, tecla global, portapapeles y widget, y dice cómo arregl
 
 La primera vez descarga el modelo (~1.6 GB).
 
+## Comandos de voz
+
+Palabras que no se escriben, sino que hacen algo. Se ignoran tildes y mayúsculas, y se pueden encadenar (*"…interrogante envía"*).
+
+| Dices | Resultado |
+|---|---|
+| *"has hecho el push **interrogante**"* | ¿Has hecho el push? |
+| *"ya pasa el build **exclamación**"* | ¡Ya pasa el build! |
+| *"revisa los logs **envía**"* | pega y pulsa **Enter** (ideal para chats y agentes) |
+| *"… **borra eso**"* | no pega nada |
+| *"**código** git status"* | `` `git status` `` |
+| *"hola mundo **entre comillas**"* | "hola mundo" |
+| *"feature login **en minúsculas**"* | feature login |
+| *"… **nueva línea** …"* / *"… **punto y aparte** …"* | salto de línea |
+
+Los comandos de final de frase solo actúan **al final**: *"borra eso del config"* se escribe normal. Cambia o desactiva las palabras en `[commands]`.
+
 ## Configuración
 
 `~/.config/jerga/config.toml` (Windows: `%APPDATA%\jerga\config.toml`). Reinicia tras editar (`systemctl --user restart jerga`).
