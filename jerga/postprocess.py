@@ -18,7 +18,11 @@ class PostProcessor:
         self.llm = llm
         self.vocab = vocabulary
 
+    # "package .json" → "package.json" (Whisper separa a veces la extensión)
+    _EXT = re.compile(r"(\w) \.(json|jsonc|js|mjs|ts|tsx|jsx|py|md|ya?ml|toml|lock|sh|env|txt|html|css|rs|go|sql)\b")
+
     def apply_rules(self, text: str) -> str:
+        text = self._EXT.sub(r"\1.\2", text)
         # varias pasadas: "dóquer con pose" → "Docker con pose" → "docker compose"
         for _ in range(3):
             before = text

@@ -82,6 +82,7 @@ def ask(image: bytes, question: str, cfg: dict) -> str:
         json={
             "model": cfg["model"],
             "stream": False,
+            "keep_alive": cfg.get("keep_alive", "1m"),  # no acaparar la GPU (Whisper la necesita)
             "options": {"temperature": 0},
             "messages": [{"role": "user", "content": PROMPT.format(q=question),
                           "images": [base64.b64encode(image).decode()]}],

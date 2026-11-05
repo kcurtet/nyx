@@ -79,6 +79,7 @@ DEFAULTS: dict = {
         "url": "http://localhost:11434",
         "max_side": 1600,
         "timeout": 60,
+        "keep_alive": "1m",  # cuánto mantiene Ollama el modelo en la GPU tras usarlo
     },
     "orders": {
         "enabled": True,

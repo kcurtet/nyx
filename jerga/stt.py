@@ -24,6 +24,7 @@ class Transcriber:
         self.device = None
         self.ready = threading.Event()
         self.error: Exception | None = None
+        self.lock = threading.Lock()  # dictado y transcripciones comparten el modelo
 
     def _load(self, device: str):
         from faster_whisper import WhisperModel
@@ -61,16 +62,33 @@ class Transcriber:
         # Un texto "estilo programador hispano" condiciona mejor que una lista suelta.
         return "Notas de desarrollo, mezclando español e inglés técnico: " + ", ".join(vocab) + "."
 
+    def segments(self, audio: np.ndarray):
+        """Audio largo (ficheros, sesiones): segmentos con tiempos y contexto entre ellos."""
+        self.ready.wait()
+        if self.model is None:
+            raise RuntimeError(f"modelo no disponible: {self.error}")
+        with self.lock:
+            segs, _ = self.model.transcribe(
+                audio,
+                language=self.cfg["language"],
+                beam_size=self.cfg["beam_size"],
+                initial_prompt=self.prompt() or None,
+                vad_filter=True,
+                condition_on_previous_text=True,  # coherencia en textos largos
+            )
+            return list(segs)
+
     def transcribe(self, audio: np.ndarray) -> str:
         self.ready.wait()
         if self.model is None:
             raise RuntimeError(f"modelo no disponible: {self.error}")
-        segs, _ = self.model.transcribe(
-            audio,
-            language=self.cfg["language"],
-            beam_size=self.cfg["beam_size"],
-            initial_prompt=self.prompt() or None,
-            vad_filter=True,
-            condition_on_previous_text=False,
-        )
-        return " ".join(s.text.strip() for s in segs).strip()
+        with self.lock:
+            segs, _ = self.model.transcribe(
+                audio,
+                language=self.cfg["language"],
+                beam_size=self.cfg["beam_size"],
+                initial_prompt=self.prompt() or None,
+                vad_filter=True,
+                condition_on_previous_text=False,
+            )
+            return " ".join(s.text.strip() for s in segs).strip()

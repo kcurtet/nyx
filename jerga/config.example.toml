@@ -29,7 +29,7 @@ vocabulary = [
   "TypeScript", "JavaScript", "Python", "Rust", "React", "Next.js", "Node",
   "npm", "pnpm", "uv", "API", "endpoint", "JSON", "YAML", "TOML", "README",
   "refactor", "debug", "bug", "fix", "test", "commit", "issue", "Ollama", "llama.cpp",
-  "pi", "Claude", "prompt", "LLM", "Linux", "Wayland", "KDE",
+  "pi", "Claude", "prompt", "LLM", "Linux", "Wayland", "KDE", "systray",
 ]
 
 # Correcciones exactas (sin distinguir mayúsculas, por palabra completa).
@@ -46,6 +46,8 @@ vocabulary = [
 "cubernetis" = "Kubernetes"
 "pul request" = "pull request"
 "pool request" = "pull request"
+"sistray" = "systray"
+"sis tray" = "systray"
 
 [commands]
 # Palabras que no se escriben, sino que hacen algo. Se ignoran tildes y mayúsculas.

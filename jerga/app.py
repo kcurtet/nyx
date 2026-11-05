@@ -7,6 +7,7 @@ Uso:
   jerga say --brief …   solo las primeras frases + "el resto lo tienes en el panel"
   jerga read            lee el texto seleccionado (igual que Ctrl+;)
   jerga hush            calla
+  jerga transcribe F…  audio/vídeo → .md con marcas de tiempo (--format srt|txt, --out DIR, --stdout)
   jerga look "pregunta" mira la pantalla con un modelo de visión local (--window: ventana activa, --all: todo)
   jerga trinity         arranca la orquestadora (pi en una pestaña de herdr)
   jerga order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
@@ -195,9 +196,21 @@ def run():
             make_listener(cfg["hotkey"]["key"], ptt, combos).start()
         except Exception as e:  # noqa: BLE001
             log(f"[hotkey] no disponible ({e}); usa `jerga toggle` desde un atajo del escritorio")
+        def transcribe_req(payload: str) -> str:
+            import json
+
+            from .transcribe import run_request
+
+            log(f"[transcribe] {payload[:200]}")
+            res = run_request(stt, post.apply_rules, json.loads(payload))
+            for line in res["log"]:
+                log(f"[transcribe] {line}")
+            return json.dumps(res, ensure_ascii=False)
+
         ControlServer({"start": start, "stop": stop, "toggle": toggle, "cancel": cancel,
                        "say": say, "say-brief": lambda t: say(t, brief=True),
                        "read": read_selection, "hush": hush, "order": send_order,
+                       "transcribe": transcribe_req,
                        "ping": lambda: None}).start()
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -279,6 +292,10 @@ def main():
     from .platform_env import prepare
 
     prepare()  # puede re-ejecutar el proceso con el entorno CUDA/GTK correcto
+    if cmd == "transcribe":
+        from .transcribe import main as transcribe_main
+
+        sys.exit(transcribe_main(args[1:], config.load()))
     if cmd == "doctor":
         from .doctor import doctor
 

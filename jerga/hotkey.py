@@ -224,6 +224,9 @@ def _server_socket() -> socket.socket:
 
 
 MAX_PAYLOAD = 1 << 20  # 1 MB
+# Comandos que se ejecutan ANTES de responder y devuelven su resultado (pueden tardar minutos).
+SYNC_COMMANDS = {"transcribe"}
+WITH_PAYLOAD = {"say", "say-brief", "order", "transcribe"}
 
 
 class ControlServer(threading.Thread):
@@ -260,16 +263,28 @@ class ControlServer(threading.Thread):
             except OSError:
                 pass
             cmd, _, payload = buf.decode(errors="replace").partition("\n")
-            fn = self.handlers.get(cmd.strip())
+            cmd = cmd.strip()
+            fn = self.handlers.get(cmd)
+            if fn and cmd in SYNC_COMMANDS:
+                conn.settimeout(None)
+                try:
+                    reply = str(fn(payload))
+                except Exception as e:  # noqa: BLE001
+                    reply = f"error: {e}"
+                try:
+                    conn.sendall(reply.encode())
+                except OSError:
+                    pass
+                return
             try:
                 conn.sendall(b"ok\n" if fn else b"unknown\n")
             except OSError:
                 pass
         if fn:
-            fn(payload) if cmd.strip() in ("say", "say-brief", "order") else fn()
+            fn(payload) if cmd in WITH_PAYLOAD else fn()
 
 
-def send_command(cmd: str, payload: str = "") -> str:
+def send_command(cmd: str, payload: str = "", timeout: float | None = 5) -> str:
     if IS_WINDOWS:
         s = socket.create_connection(("127.0.0.1", CONTROL_PORT), timeout=2)
     else:
@@ -279,7 +294,14 @@ def send_command(cmd: str, payload: str = "") -> str:
     with s:
         s.sendall(f"{cmd}\n{payload}".encode())
         s.shutdown(socket.SHUT_WR)
-        return s.recv(64).decode().strip()
+        s.settimeout(timeout)
+        chunks = []
+        while True:
+            c = s.recv(65536)
+            if not c:
+                break
+            chunks.append(c)
+        return b"".join(chunks).decode(errors="replace").strip()
 
 
 def is_running() -> bool:
