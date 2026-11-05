@@ -1,8 +1,10 @@
-# voice-agent — configuración
-# Se copia a ~/.config/voice-agent/config.toml la primera vez. Edita esa copia.
+# jerga — configuración
+# Se crea la primera vez en ~/.config/jerga/config.toml (Windows: %APPDATA%\jerga\config.toml).
+# `jerga config` te dice la ruta. Reinicia jerga tras editar.
 
 [hotkey]
-# Nombre evdev de la tecla (ver `python -m evdev.evtest` o `voice-agent keys`).
+# Nombre de la tecla (pulsa teclas con `jerga keys` para ver su nombre).
+# Ej.: KEY_RIGHTCTRL, KEY_RIGHTALT, KEY_F12, KEY_PAUSE, KEY_SCROLLLOCK, KEY_CAPSLOCK
 key = "KEY_RIGHTCTRL"
 # "hold": mantener pulsada para grabar, soltar para transcribir.
 #         Si pulsas otra tecla mientras la mantienes, se cancela (era un atajo).
@@ -12,8 +14,9 @@ min_seconds = 0.35          # grabaciones más cortas se descartan
 
 [stt]
 model = "large-v3-turbo"    # o "large-v3" (más lento, algo más preciso)
-device = "cuda"
-compute_type = "float16"
+device = "auto"             # auto | cuda | cpu
+compute_type = "auto"       # auto → float16 en GPU, int8 en CPU
+# Sin GPU, si va lento: model = "small" o "medium"
 language = "es"
 beam_size = 5
 # Vocabulario que Whisper debe "esperar". Se mete en el prompt inicial.
@@ -57,8 +60,12 @@ timeout = 4.0
 # "type": teclea con ydotool (lento, sin tildes fiables).
 # "clipboard": solo copia, tú pegas.
 method = "paste"
-# shift+insert pega en terminales y casi todas las apps. Alternativa: "ctrl+v", "ctrl+shift+v".
-paste_keys = "shift+insert"
+# Tecla de pegar. Por defecto: shift+insert en Linux (terminales y apps), ctrl+v en Windows.
+# paste_keys = "ctrl+shift+v"
 restore_clipboard = true
 trailing_space = true
 strip_final_period = false
+
+[ui]
+# auto | gtk (Wayland: KDE/Sway/Hyprland) | tk (Windows/X11/GNOME) | none
+backend = "auto"
