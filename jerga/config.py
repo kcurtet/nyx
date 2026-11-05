@@ -79,6 +79,12 @@ DEFAULTS: dict = {
         "labels": ["Yo", "Ellos"],  # micrófono / audio del sistema cuando se graban los dos
         "mic_device": None,
     },
+    "transcribe": {
+        # Ficheros más largos que esto se transcriben por bloques cortados en silencios:
+        # el dictado no se queda bloqueado (pasa delante entre bloques) y Whisper no entra en bucle.
+        "long_after_s": 600,
+        "block_s": 300,
+    },
     "notes": {
         # Transcribe solo las notas de voz NUEVAS que aparezcan aquí (deja el .md al lado).
         "enabled": True,

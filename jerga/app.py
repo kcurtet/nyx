@@ -277,7 +277,8 @@ def run():
                 notify(f"Nota de voz: {src.name}", note_preview(md))
 
             NotesWatcher(cfg["notes"]["dirs"], cfg["notes"]["extensions"],
-                         lambda p: transcribe_file(stt, post.apply_rules, p)[0], notify=note_done).start()
+                         lambda p: transcribe_file(stt, post.apply_rules, p, opts=cfg["transcribe"])[0],
+                         notify=note_done).start()
 
         def transcribe_req(payload: str) -> str:
             import json

@@ -52,12 +52,13 @@ def is_hallucination(seg) -> bool:
     return (nsp > 0.6 and lp < -0.7) or cr > 2.6
 
 
-def transcribe_audio(stt, audio: np.ndarray, fix=None, offset: float = 0.0, speaker: str | None = None) -> list[Segment]:
-    """Audio largo → segmentos. `stt` es un jerga.stt.Transcriber ya cargado."""
+def transcribe_audio(stt, audio: np.ndarray, fix=None, offset: float = 0.0, speaker: str | None = None,
+                     context: str = "") -> list[Segment]:
+    """Audio → segmentos. `stt` es un jerga.stt.Transcriber ya cargado."""
     if audio.size < SR * 0.3 or float(np.sqrt(np.mean(audio**2))) < SILENCE_RMS:
         return []  # silencio: Whisper se inventaría frases ("…protección contra mordiscos")
     out = []
-    for s in stt.segments(audio):
+    for s in (stt.segments(audio, context) if context else stt.segments(audio)):
         if is_hallucination(s):
             continue
         text = s.text.strip()
@@ -66,6 +67,56 @@ def transcribe_audio(stt, audio: np.ndarray, fix=None, offset: float = 0.0, spea
         if text:
             out.append(Segment(offset + s.start, offset + s.end, text, speaker))
     return out
+
+
+LONG_AFTER_S = 600  # más largo que esto → por bloques
+BLOCK_S = 300  # tamaño de bloque
+CUT_SEARCH_S = 20  # buscar el silencio en los últimos N s de cada bloque
+
+
+def last_sentence(segs: list[Segment], n: int = 200) -> str:
+    """Final del texto para dárselo como contexto al bloque siguiente."""
+    text = " ".join(s.text for s in segs[-3:]).strip()
+    return text[-n:]
+
+
+def blocks(n_samples: int, audio: np.ndarray, block_s: float, search_s: float = CUT_SEARCH_S) -> list[tuple[int, int]]:
+    """Límites de bloques de ~block_s cortados en el silencio más cercano al final de cada uno."""
+    from .session import quiet_cut
+
+    out, pos, size = [], 0, int(block_s * SR)
+    while pos < n_samples:
+        end = pos + size
+        if end >= n_samples or n_samples - end < SR * 30:  # el resto es corto: va entero
+            out.append((pos, n_samples))
+            break
+        end = pos + quiet_cut(audio[pos:end], search_s)
+        out.append((pos, end))
+        pos = end
+    return out
+
+
+def transcribe_long(stt, audio: np.ndarray, fix=None, opts: dict | None = None, on_block=None) -> list[Segment]:
+    """Ficheros: enteros si son cortos; si pasan de `long_after_s`, en bloques cortados en silencios.
+
+    Entre bloques el modelo queda libre y, si hay un dictado esperando, se le cede el turno.
+    `on_block(segmentos_hasta_ahora, fracción)` permite escribir el resultado por partes.
+    """
+    import time
+
+    opts = opts or {}
+    long_after = opts.get("long_after_s", LONG_AFTER_S)
+    if audio.size <= long_after * SR:
+        return transcribe_audio(stt, audio, fix)
+    segs: list[Segment] = []
+    limits = blocks(audio.size, audio, opts.get("block_s", BLOCK_S))
+    for a, b in limits:
+        while getattr(stt, "dictation_waiting", False):  # tu dictado primero
+            time.sleep(0.05)
+        segs += transcribe_audio(stt, audio[a:b], fix, offset=a / SR, context=last_sentence(segs))
+        if on_block:
+            on_block(segs, b / audio.size)
+    return segs
 
 
 # ------------------------------------------------------------------ formatos
@@ -145,13 +196,21 @@ def load_stt(cfg: dict):
     return stt, fix
 
 
-def transcribe_file(stt, fix, path: Path, fmt: str = "md", out_dir: Path | None = None) -> tuple[Path, float, int]:
+def transcribe_file(stt, fix, path: Path, fmt: str = "md", out_dir: Path | None = None,
+                    opts: dict | None = None) -> tuple[Path, float, int]:
     audio = decode(path)
-    segs = transcribe_audio(stt, audio, fix)
+    dur = audio.size / SR
     dest = (out_dir or path.parent) / f"{path.stem}.{fmt}"
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(render(segs, fmt, path.stem, path.name, audio.size / SR), encoding="utf-8")
-    return dest, audio.size / SR, len(segs)
+
+    def partial(segs, frac):  # ficheros largos: el .md aparece y crece por partes
+        if fmt == "md" and frac < 1:
+            dest.write_text(render(segs, fmt, path.stem, path.name, dur) + f"\n*(transcribiendo… {frac:.0%})*\n",
+                            encoding="utf-8")
+
+    segs = transcribe_long(stt, audio, fix, opts, on_block=partial)
+    dest.write_text(render(segs, fmt, path.stem, path.name, dur), encoding="utf-8")
+    return dest, dur, len(segs)
 
 
 def run_request(stt, fix, req: dict) -> dict:
@@ -165,9 +224,10 @@ def run_request(stt, fix, req: dict) -> dict:
         try:
             if req.get("stdout"):
                 audio = decode(f)
-                res["out"] += render(transcribe_audio(stt, audio, fix), fmt, f.stem, f.name, audio.size / SR)
+                res["out"] += render(transcribe_long(stt, audio, fix, req.get("opts")), fmt, f.stem, f.name,
+                                     audio.size / SR)
                 continue
-            dest, dur, n = transcribe_file(stt, fix, f, fmt, out_dir)
+            dest, dur, n = transcribe_file(stt, fix, f, fmt, out_dir, req.get("opts"))
             res["log"].append(f"✔ {f.name} ({stamp(dur)}) → {dest}  [{time.monotonic() - t0:.1f}s, {n} segmentos]")
         except Exception as e:  # noqa: BLE001
             res["rc"] = 1
@@ -196,7 +256,8 @@ def main(args: list[str], cfg: dict) -> int:
     if missing:
         print(f"no existe: {', '.join(map(str, missing))}", file=sys.stderr)
         return 1
-    req = {"files": [str(f) for f in files], "format": fmt, "out": out_dir, "stdout": to_stdout}
+    req = {"files": [str(f) for f in files], "format": fmt, "out": out_dir, "stdout": to_stdout,
+           "opts": cfg.get("transcribe", {})}
 
     from .hotkey import is_running, send_command
 

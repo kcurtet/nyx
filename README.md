@@ -89,7 +89,7 @@ jerga transcribe reunion.mp4                 # → reunion.md con marcas de tiem
 jerga transcribe nota.ogg --format srt       # o txt; --out DIR; --stdout
 ```
 
-Cualquier formato que lea ffmpeg (mp3, ogg/opus de WhatsApp, m4a, mp4, mkv…), con tu vocabulario técnico y tus reemplazos. Usa el Whisper que ya tiene cargado el servicio: 34 s de audio en ~0,7 s en GPU. También desde el icono de la bandeja → *Transcribir fichero…*
+Cualquier formato que lea ffmpeg (mp3, ogg/opus de WhatsApp, m4a, mp4, mkv…), con tu vocabulario técnico y tus reemplazos. Los ficheros de más de 10 min se procesan en bloques de ~5 min cortados en silencios (con el final del bloque anterior como contexto): el `.md` va apareciendo por partes, Whisper no entra en bucle y **tu dictado pasa delante** entre bloques (`[transcribe]` long_after_s / block_s). Usa el Whisper que ya tiene cargado el servicio: 34 s de audio en ~0,7 s en GPU. También desde el icono de la bandeja → *Transcribir fichero…*
 
 ### Sesiones largas en vivo
 

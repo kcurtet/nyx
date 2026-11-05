@@ -104,3 +104,39 @@ def test_silencio_y_alucinaciones():
     voz = np.random.default_rng(2).normal(0, 0.1, SR * 2).astype(np.float32)
     assert [s.text for s in transcribe_audio(FakeSTT(), voz)] == ["Hola."]
     assert is_hallucination(NS(no_speech_prob=0.1, avg_logprob=-0.2, compression_ratio=3.0))
+
+
+def test_ficheros_largos_por_bloques():
+    from types import SimpleNamespace as NS
+
+    from jerga.transcribe import blocks, transcribe_long
+
+    rng = np.random.default_rng(3)
+    audio = rng.normal(0, 0.1, SR * 60 * 25).astype(np.float32)  # 25 min
+    for m in (5, 10, 15, 20):  # silencios cerca de cada frontera de 5 min
+        audio[SR * (60 * m - 8): SR * (60 * m - 7)] = 0
+    lim = blocks(audio.size, audio, 300)
+    assert len(lim) == 5 and lim[0][0] == 0 and lim[-1][1] == audio.size
+    assert all(a2 == b1 for (_, b1), (a2, _) in zip(lim, lim[1:]))  # sin huecos ni solapes
+    assert abs(lim[0][1] / SR - (300 - 7.5)) < 0.6  # cortado en el silencio
+
+    calls = []
+
+    class FakeSTT:
+        dictation_waiting = False
+
+        def segments(self, a, context=""):
+            calls.append(context)
+            return [NS(start=0, end=1, text=f"bloque {len(calls)}.", no_speech_prob=0, avg_logprob=0, compression_ratio=1)]
+
+    progress = []
+    segs = transcribe_long(FakeSTT(), audio, opts={"long_after_s": 600, "block_s": 300},
+                           on_block=lambda s, f: progress.append(round(f, 2)))
+    assert [s.text for s in segs] == [f"bloque {i}." for i in range(1, 6)]
+    assert calls[0] == "" and calls[1] == "bloque 1." and "bloque 2." in calls[2]  # contexto encadenado
+    assert progress[-1] == 1.0 and segs[1].start == lim[1][0] / SR
+
+    corto = rng.normal(0, 0.1, SR * 60).astype(np.float32)
+    calls.clear()
+    transcribe_long(FakeSTT(), corto, opts={"long_after_s": 600})
+    assert calls == [""]  # corto: entero, una sola llamada

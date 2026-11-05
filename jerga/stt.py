@@ -25,6 +25,8 @@ class Transcriber:
         self.ready = threading.Event()
         self.error: Exception | None = None
         self.lock = threading.Lock()  # dictado y transcripciones comparten el modelo
+        self._priority = 0  # dictados esperando el modelo: las transcripciones largas ceden el turno
+        self._prio_lock = threading.Lock()
 
     def _load(self, device: str):
         from faster_whisper import WhisperModel
@@ -62,17 +64,23 @@ class Transcriber:
         # Un texto "estilo programador hispano" condiciona mejor que una lista suelta.
         return "Notas de desarrollo, mezclando español e inglés técnico: " + ", ".join(vocab) + "."
 
-    def segments(self, audio: np.ndarray):
-        """Audio largo (ficheros, sesiones): segmentos con tiempos y contexto entre ellos."""
+    @property
+    def dictation_waiting(self) -> bool:
+        return self._priority > 0
+
+    def segments(self, audio: np.ndarray, context: str = ""):
+        """Audio largo (ficheros, sesiones): segmentos con tiempos y contexto entre ellos.
+        `context`: final del bloque anterior, para no perder el hilo entre bloques."""
         self.ready.wait()
         if self.model is None:
             raise RuntimeError(f"modelo no disponible: {self.error}")
+        prompt = " ".join(p for p in (self.prompt(), context.strip()) if p)
         with self.lock:
             segs, _ = self.model.transcribe(
                 audio,
                 language=self.cfg["language"],
                 beam_size=self.cfg["beam_size"],
-                initial_prompt=self.prompt() or None,
+                initial_prompt=prompt or None,
                 vad_filter=True,
                 condition_on_previous_text=True,  # coherencia en textos largos
             )
@@ -82,13 +90,19 @@ class Transcriber:
         self.ready.wait()
         if self.model is None:
             raise RuntimeError(f"modelo no disponible: {self.error}")
-        with self.lock:
-            segs, _ = self.model.transcribe(
-                audio,
-                language=self.cfg["language"],
-                beam_size=self.cfg["beam_size"],
-                initial_prompt=self.prompt() or None,
-                vad_filter=True,
-                condition_on_previous_text=False,
-            )
-            return " ".join(s.text.strip() for s in segs).strip()
+        with self._prio_lock:
+            self._priority += 1  # el dictado pasa delante de los bloques de transcripciones largas
+        try:
+            with self.lock:
+                segs, _ = self.model.transcribe(
+                    audio,
+                    language=self.cfg["language"],
+                    beam_size=self.cfg["beam_size"],
+                    initial_prompt=self.prompt() or None,
+                    vad_filter=True,
+                    condition_on_previous_text=False,
+                )
+                return " ".join(s.text.strip() for s in segs).strip()
+        finally:
+            with self._prio_lock:
+                self._priority -= 1
