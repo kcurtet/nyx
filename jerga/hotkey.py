@@ -71,6 +71,10 @@ def parse_combo(spec: str) -> tuple[list[str], str]:
     return mods, key
 
 
+_KEY_DEBUG = bool(os.environ.get("JERGA_KEY_DEBUG"))
+_CTRL = {29, 97}  # KEY_LEFTCTRL, KEY_RIGHTCTRL
+
+
 # ------------------------------------------------------------------- Linux
 class EvdevListener(threading.Thread):
     def __init__(self, key: str, ptt: PushToTalk, combos: list | None = None):
@@ -138,6 +142,11 @@ class EvdevListener(threading.Thread):
 
     def _key(self, code: int, down: bool):
         (self.down.add if down else self.down.discard)(code)
+        if _KEY_DEBUG and down and code not in _CTRL and self.down & _CTRL:
+            # depuración de atajos: SOLO teclas pulsadas con Ctrl (no registra lo que escribes)
+            name = self.e.KEY.get(code, code)
+            log(f"[hotkey-debug] Ctrl + {name[0] if isinstance(name, list) else name} (código {code}); "
+                f"combos esperan {[(k, [sorted(g) for g in gs]) for gs, k, _ in self.combos]}")
         (self.ptt.target if code == self.code else self.ptt.other)(down)
         if down:
             for groups, k, fn in self.combos:

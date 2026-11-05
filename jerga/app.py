@@ -109,6 +109,11 @@ def run():
                     send_order(order)
                     return
             res = post.process(raw)
+            if res.action:
+                log(f"[orden local] {res.action} ← {raw!r}")
+                ui.call(ui.hide)
+                (read_selection if res.action == "read" else hush)()
+                return
             text = res.text
             if text != raw or res.send or res.discard:
                 flags = (" [envía]" if res.send else "") + (" [descartado]" if res.discard else "")

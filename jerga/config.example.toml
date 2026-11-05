@@ -95,7 +95,7 @@ strip_final_period = false
 # Leer en voz alta: selecciona texto y pulsa la tecla (otra vez = callar).
 # También: jerga say "texto" · echo "texto" | jerga say · jerga hush
 enabled = true
-key = "ctrl+;"                 # ej.: "ctrl+;", "ctrl+alt+r", "KEY_F9"
+key = "ctrl+0"                 # ej.: "ctrl+0", "ctrl+alt+r", "KEY_F9"  · también por voz: «léeme esto» / «calla»
 voice = "Nerea"                # voces de phonon: Nerea, Alicia, Celia, Noa, Candela… (es-ES) · Regina, Ximena… (es-MX)
 model = "hf://gradium/phonon-40m-es"
 quant = "q8_0"

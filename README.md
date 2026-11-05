@@ -58,7 +58,7 @@ Revisa GPU, micrófono, tecla global, portapapeles y widget, y dice cómo arregl
 |---|---|
 | Mantener **Ctrl derecho** | grabar; al soltar, transcribe y pega |
 | Ctrl derecho + otra tecla | cancela (era un atajo, no dictado) |
-| **Ctrl+;** | lee el texto seleccionado (otra vez: calla) |
+| **Ctrl+0** o «léeme esto» | lee el texto seleccionado (otra vez, o «calla»: se calla) |
 | `jerga toggle` / `start` / `stop` / `cancel` | control del dictado desde atajos o scripts |
 | `jerga say "…"` / `jerga hush` | leer texto en voz alta / callar |
 | `jerga keys` | muestra el nombre de las teclas que pulses (para cambiar la tecla) |
@@ -68,7 +68,7 @@ La primera vez descarga el modelo (~1.6 GB).
 
 ## Leer en voz alta
 
-Selecciona texto en cualquier sitio y pulsa **Ctrl+;**. Otra vez, se calla; si empiezas a dictar, también.
+Selecciona texto en cualquier sitio y pulsa **Ctrl+0** (o di «léeme esto»). Otra vez, se calla; si empiezas a dictar, también.
 
 ```sh
 jerga say "El pipeline del CI/CD ya pasa"   # o: echo "…" | jerga say

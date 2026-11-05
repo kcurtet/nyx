@@ -127,3 +127,13 @@ def test_pi_args_orquestadora(tmp_path, monkeypatch):
     assert ["-e", str(pkg / "index.ts")] == args[6:8]
     assert args[-4:] == ["-e", str(AGENT_DIR / "voice.ts"), "--model", "x/y"]
     assert pi_args_for({"isolated": False}) == ["--skill", str(AGENT_DIR), "-e", str(AGENT_DIR / "voice.ts")]
+
+
+def test_frases_orden_leer_y_callar():
+    for t in ("Léeme esto.", "lee esto", "Léelo", "¿Lee la selección?"):
+        assert p(t).action == "read", t
+    for t in ("Calla.", "Cállate", "silencio", "Para de leer."):
+        assert p(t).action == "hush", t
+    # dentro de un dictado normal NO son órdenes
+    assert p("Léeme esto despacio que no lo entiendo.").action is None
+    assert p("El silencio del log es raro.").action is None

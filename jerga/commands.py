@@ -30,6 +30,7 @@ class Result:
     text: str
     send: bool = False  # pulsar Enter después de pegar
     discard: bool = False  # no pegar nada
+    action: str | None = None  # frase-orden completa: "read" (leer selección) · "hush" (callar)
 
 
 def _fold(s: str) -> str:
@@ -72,6 +73,11 @@ def parse(text: str, commands: dict) -> Result:
     res = Result(text)
     if not text or not commands:
         return res
+    # Frases-orden: SOLO si es todo lo que has dicho ("léeme esto", "calla").
+    whole = _fold(text).strip(_PUNCT + "\"'«»")
+    for kind, action in (("read_words", "read"), ("hush_words", "hush")):
+        if whole in {_fold(w) for w in commands.get(kind) or []}:
+            return Result("", action=action)
     open_marks = commands.get("spanish_open_marks", commands.get("spanish_open_question", True))
 
     triggers = sorted(

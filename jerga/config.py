@@ -57,6 +57,9 @@ DEFAULTS: dict = {
         "code_words": ["código"],
         "newline_words": ["nueva línea", "salto de línea"],
         "paragraph_words": ["punto y aparte"],
+        # Frases-orden (solo si es TODO lo que dices): leer en voz alta lo seleccionado / callar.
+        "read_words": ["léeme esto", "lee esto", "léelo", "lee la selección", "léeme la selección"],
+        "hush_words": ["calla", "cállate", "silencio", "para de leer"],
     },
     "llm": {
         "enabled": False,
@@ -114,7 +117,7 @@ DEFAULTS: dict = {
     },
     "tts": {
         "enabled": True,
-        "key": "ctrl+;",  # leer el texto seleccionado (otra vez: callar)
+        "key": "ctrl+0",  # leer el texto seleccionado (otra vez: callar). También por voz: «léeme esto»
         "model": "hf://gradium/phonon-40m-es",
         "voice": "Nerea",
         "quant": "q8_0",
