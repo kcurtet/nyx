@@ -80,6 +80,8 @@ Voz local con [phonon](https://huggingface.co/gradium/phonon-40m-es) (40M parám
 - **Normaliza texto técnico:** no lee bloques de código ("Bloque de código en python"), quita Markdown y emojis, resume URLs ("un enlace a github.com") y rutas (`/etc/x/y.conf` → "y.conf").
 - **Lexicón de pronunciación** afinado a oído: `kubectl` → *kiub ci ti el*, `el CI/CD` → *la integración continua*, `pipeline` → *paip-láin*… Amplíalo en `[tts.lexicon]`.
 
+Si tienes Ctrl y Bloq Mayús intercambiados (`ctrl:swapcaps`, `ctrl:nocaps`…), jerga lo detecta en KDE, GNOME y wlroots: tu "Ctrl" funciona en los atajos. Si no, indícalo en `[hotkey] ctrl_keys`.
+
 `jerga say` sirve para que otros programas hablen; por ejemplo, un agente que lea sus respuestas.
 
 ## Transcribir audio y vídeo

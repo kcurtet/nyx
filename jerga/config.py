@@ -34,7 +34,12 @@ EXAMPLE_PATH = Path(__file__).resolve().parent / "config.example.toml"
 LEGACY_CONFIG = Path.home() / ".config" / "voice-agent" / "config.toml"
 
 DEFAULTS: dict = {
-    "hotkey": {"key": "KEY_RIGHTCTRL", "mode": "hold", "min_seconds": 0.35},
+    "hotkey": {
+        "key": "KEY_RIGHTCTRL", "mode": "hold", "min_seconds": 0.35,
+        # Teclas físicas extra que cuentan como Ctrl en los atajos (las de xkb como ctrl:swapcaps
+        # se detectan solas en KDE, GNOME y wlroots). Ej.: ["KEY_CAPSLOCK"]
+        "ctrl_keys": [],
+    },
     "audio": {"samplerate": 16000, "device": None},
     "stt": {
         "model": "large-v3-turbo",

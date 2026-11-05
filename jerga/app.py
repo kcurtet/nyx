@@ -208,7 +208,7 @@ def run():
             combos.append((cfg["tts"]["key"], read_selection))
         ptt = PushToTalk(cfg["hotkey"]["mode"], start, stop, cancel)
         try:
-            make_listener(cfg["hotkey"]["key"], ptt, combos).start()
+            make_listener(cfg["hotkey"]["key"], ptt, combos, cfg["hotkey"].get("ctrl_keys")).start()
         except Exception as e:  # noqa: BLE001
             log(f"[hotkey] no disponible ({e}); usa `jerga toggle` desde un atajo del escritorio")
         def status(_payload: str = "") -> str:

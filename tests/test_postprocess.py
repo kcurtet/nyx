@@ -137,3 +137,22 @@ def test_frases_orden_leer_y_callar():
     # dentro de un dictado normal NO son órdenes
     assert p("Léeme esto despacio que no lo entiendo.").action is None
     assert p("El silencio del log es raro.").action is None
+
+
+def test_ctrl_con_swapcaps(monkeypatch):
+    import jerga.hotkey as hk
+
+    assert hk.ctrl_key_names(["ctrl:swapcaps"]) == {"KEY_RIGHTCTRL", "KEY_CAPSLOCK"}
+    assert hk.ctrl_key_names(["ctrl:nocaps"]) == {"KEY_LEFTCTRL", "KEY_RIGHTCTRL", "KEY_CAPSLOCK"}
+    assert hk.ctrl_key_names([]) == {"KEY_LEFTCTRL", "KEY_RIGHTCTRL"}
+    assert "KEY_F13" in hk.ctrl_key_names([], ["KEY_F13"])
+
+    monkeypatch.setattr(hk, "xkb_options", lambda: ["ctrl:swapcaps"])
+    fired = []
+    ptt = hk.PushToTalk("hold", lambda: None, lambda: None, lambda: None)
+    L = hk.EvdevListener("KEY_RIGHTCTRL", ptt, [("ctrl+0", lambda: fired.append("leer"))])
+    import time
+    for code, down in [(58, True), (11, True), (11, False), (58, False)]:  # Bloq Mayús (=Ctrl) + 0
+        L._key(code, down)
+    time.sleep(0.1)
+    assert fired == ["leer"]

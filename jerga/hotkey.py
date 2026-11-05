@@ -7,6 +7,7 @@ Control: socket unix (Linux) o TCP local (Windows) → `jerga toggle`.
 from __future__ import annotations
 
 import os
+import re
 import selectors
 import socket
 import threading
@@ -58,6 +59,44 @@ MODIFIERS = {
 }
 
 
+def xkb_options() -> list[str]:
+    """Opciones xkb del escritorio (p.ej. ctrl:swapcaps). jerga lee el teclado ANTES de que el
+    escritorio aplique estos remapeos, así que necesita saberlos para entender los atajos."""
+    import subprocess
+
+    opts: list[str] = []
+    env = os.environ.get("XKB_DEFAULT_OPTIONS")  # sway, hyprland, wlroots
+    if env:
+        opts += env.split(",")
+    kde = Path.home() / ".config" / "kxkbrc"
+    if kde.is_file():
+        for line in kde.read_text(errors="replace").splitlines():
+            if line.strip().startswith("Options="):
+                opts += line.split("=", 1)[1].split(",")
+    if not opts:
+        try:  # GNOME
+            r = subprocess.run(["gsettings", "get", "org.gnome.desktop.input-sources", "xkb-options"],
+                               capture_output=True, text=True, timeout=2)
+            opts += re.findall(r"'([^']+)'", r.stdout)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return [o.strip() for o in opts if o.strip()]
+
+
+_SWAPCAPS = {"ctrl:swapcaps", "ctrl:swapcaps_hyper", "ctrl:swapcaps_and_switch_layout"}
+_CAPS_IS_CTRL = {"ctrl:nocaps", "caps:ctrl_modifier"}
+
+
+def ctrl_key_names(opts: list[str], extra: list[str] | None = None) -> set[str]:
+    """Teclas físicas (nombres evdev) que el escritorio trata como Ctrl."""
+    keys = {"KEY_LEFTCTRL", "KEY_RIGHTCTRL"}
+    if _SWAPCAPS & set(opts):
+        keys = (keys - {"KEY_LEFTCTRL"}) | {"KEY_CAPSLOCK"}
+    elif _CAPS_IS_CTRL & set(opts):
+        keys.add("KEY_CAPSLOCK")
+    return keys | set(extra or [])
+
+
 def parse_combo(spec: str) -> tuple[list[str], str]:
     """"ctrl+;" / "ctrl+KEY_SEMICOLON" → (["ctrl"], "KEY_SEMICOLON")."""
     parts = [p.strip() for p in spec.split("+") if p.strip()] if spec.strip() != "+" else ["+"]
@@ -73,11 +112,14 @@ def parse_combo(spec: str) -> tuple[list[str], str]:
 
 _KEY_DEBUG = bool(os.environ.get("JERGA_KEY_DEBUG"))
 _CTRL = {29, 97}  # KEY_LEFTCTRL, KEY_RIGHTCTRL
+# Modificadores (para depurar atajos sin registrar lo que se escribe):
+# ctrl, shift, alt, super, bloq mayús, menú
+_MODS = {29, 97, 42, 54, 56, 100, 125, 126, 58, 127, 464}
 
 
 # ------------------------------------------------------------------- Linux
 class EvdevListener(threading.Thread):
-    def __init__(self, key: str, ptt: PushToTalk, combos: list | None = None):
+    def __init__(self, key: str, ptt: PushToTalk, combos: list | None = None, ctrl_keys: list[str] | None = None):
         super().__init__(daemon=True)
         from evdev import ecodes
 
@@ -88,10 +130,15 @@ class EvdevListener(threading.Thread):
         self.down: set[int] = set()
         # [(grupos de modificadores [{códigos}], código, callback)]
         self.combos = []
+        opts = xkb_options()
+        mod_names = dict(MODIFIERS)
+        mod_names["ctrl"] = tuple(sorted(ctrl_key_names(opts, ctrl_keys)))
         for spec, fn in combos or []:
             mods, k = parse_combo(spec)
-            groups = [{ecodes.ecodes[c] for c in MODIFIERS[m]} for m in mods]
+            groups = [{ecodes.ecodes[c] for c in mod_names[m]} for m in mods]
             self.combos.append((groups, ecodes.ecodes[k], fn))
+        if self.combos and mod_names["ctrl"] != MODIFIERS["ctrl"]:
+            log(f"[hotkey] opciones del teclado {opts}: Ctrl = {', '.join(mod_names['ctrl'])}")
 
     def _scan(self, sel):
         import evdev
@@ -109,7 +156,10 @@ class EvdevListener(threading.Thread):
             if "ydotool" in name or "jerga" in name:  # ignorar teclas simuladas
                 continue
             caps = set(d.capabilities().get(self.e.EV_KEY, []))
-            if self.code in caps or any(c in caps for _, c, _ in self.combos):
+            # también los modificadores de los atajos: hay teclados que mandan Ctrl izquierdo
+            # desde un dispositivo interno distinto al de las demás teclas
+            wanted = {self.code} | {c for _, c, _ in self.combos} | {m for gs, _, _ in self.combos for g in gs for m in g}
+            if caps & wanted:
                 sel.register(d, selectors.EVENT_READ)
                 added.append(d.name)
         return added
@@ -129,7 +179,7 @@ class EvdevListener(threading.Thread):
                 try:
                     for ev in dev.read():
                         if ev.type == self.e.EV_KEY and ev.value != 2:
-                            self._key(ev.code, ev.value == 1)
+                            self._key(ev.code, ev.value == 1, dev.name)
                 except OSError:  # teclado desconectado
                     sel.unregister(dev)
                     self.known.discard(dev.path)
@@ -140,8 +190,12 @@ class EvdevListener(threading.Thread):
                     log("[hotkey] nuevo teclado:", ", ".join(new))
 
 
-    def _key(self, code: int, down: bool):
+    def _key(self, code: int, down: bool, device: str = ""):
         (self.down.add if down else self.down.discard)(code)
+        if _KEY_DEBUG and code in _MODS:
+            name = self.e.KEY.get(code, code)
+            log(f"[hotkey-debug] {name[0] if isinstance(name, list) else name} {'pulsado' if down else 'soltado'} "
+                f"(código {code}) en «{device}»")
         if _KEY_DEBUG and down and code not in _CTRL and self.down & _CTRL:
             # depuración de atajos: SOLO teclas pulsadas con Ctrl (no registra lo que escribes)
             name = self.e.KEY.get(code, code)
@@ -214,9 +268,10 @@ class PynputListener:
         log(f"[hotkey] escuchando {self.target}")
 
 
-def make_listener(key: str, ptt: PushToTalk, combos: list | None = None):
-    """combos: [("ctrl+;", callback), …] — atajos extra que disparan una acción."""
-    return PynputListener(key, ptt, combos) if IS_WINDOWS else EvdevListener(key, ptt, combos)
+def make_listener(key: str, ptt: PushToTalk, combos: list | None = None, ctrl_keys: list[str] | None = None):
+    """combos: [("ctrl+0", callback), …] — atajos extra que disparan una acción.
+    ctrl_keys: teclas físicas extra que cuentan como Ctrl (además de lo que diga xkb)."""
+    return PynputListener(key, ptt, combos) if IS_WINDOWS else EvdevListener(key, ptt, combos, ctrl_keys)
 
 
 # ----------------------------------------------------------------- control
