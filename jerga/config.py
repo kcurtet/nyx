@@ -45,6 +45,11 @@ DEFAULTS: dict = {
         "vocabulary": [],
     },
     "replacements": {},
+    "commands": {
+        # Si la frase termina con una de estas palabras, se quita y se convierte en pregunta.
+        "question_words": ["pregunta"],
+        "spanish_open_question": True,  # añade "¿" al principio
+    },
     "llm": {
         "enabled": False,
         "url": "http://localhost:11434",

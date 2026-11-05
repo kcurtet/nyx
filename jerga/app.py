@@ -34,7 +34,7 @@ def run():
     log(f"jerga {__version__} · config: {config.CONFIG_PATH}")
     rec = Recorder(cfg["audio"]["samplerate"], cfg["audio"]["device"])
     stt = Transcriber(cfg["stt"])
-    post = PostProcessor(cfg["replacements"], cfg["llm"], cfg["stt"]["vocabulary"])
+    post = PostProcessor(cfg["replacements"], cfg["llm"], cfg["stt"]["vocabulary"], cfg["commands"])
     out = Output(cfg["output"])
     ui = ui_mod.create(cfg["ui"]["backend"])
     lock = threading.Lock()

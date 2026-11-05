@@ -47,6 +47,13 @@ vocabulary = [
 "pul request" = "pull request"
 "pool request" = "pull request"
 
+[commands]
+# Termina la frase diciendo una de estas palabras y se convierte en pregunta:
+#   "has hecho el push a main pregunta"  →  "¿Has hecho el push a main?"
+# Ojo: "tengo una pregunta" también se convertiría. Usa otra palabra si te molesta.
+question_words = ["pregunta"]
+spanish_open_question = true   # añadir "¿" al principio
+
 [llm]
 # Segunda pasada con un LLM local que corrige SOLO términos técnicos.
 # Añade ~0.3-1 s de latencia. Actívalo si los reemplazos no bastan.
