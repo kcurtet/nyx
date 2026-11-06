@@ -14,7 +14,8 @@ import nyx.config
 import nyx.hotkey
 import nyx.migrate
 import nyx.platform_env
-from nyx.output import UINPUT_NAME, UINPUT_TAG, teclado_simulado
+import nyx.vol
+from nyx.output import UINPUT_NAME, teclado_simulado
 
 AVISO = "jerga ahora es nyx"
 
@@ -50,6 +51,28 @@ def test_el_marker_no_borra_el_aviso_si_falla_la_escritura(tmp_path, monkeypatch
     monkeypatch.setattr(nyx.config, "STATE_DIR", Path("/proc/no-puedo-escribir-aqui"))
     nyx.app._aviso_alias()
     assert capsys.readouterr().err.strip() == AVISO
+
+
+def test_aviso_por_el_alias_con_estado_viejo_migra_y_avisa(tmp_path, monkeypatch, capsys):
+    """Hallazgo review 1: el aviso corría ANTES de migrate.run() y su marker creaba STATE_DIR
+    vacío → la migración de estado veía «conviven» y nunca ocurría. Ahora: migra Y avisa."""
+    home = tmp_path / "home"
+    viejo = home / ".local" / "state" / "jerga"
+    viejo.mkdir(parents=True)
+    (viejo / "jerga.log").write_text("log", encoding="utf-8")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    monkeypatch.setenv("XDG_STATE_HOME", str(home / ".local" / "state"))
+    monkeypatch.setattr(nyx.config, "docs_root", lambda: home / "Documents")  # migrate sin home inyectado
+    monkeypatch.setattr(nyx.config, "STATE_DIR", home / ".local" / "state" / "nyx")  # como en la vida real
+    monkeypatch.setattr(nyx.vol, "main", lambda args: 0)  # subcomando inofensivo: llega a migrate y sale
+    monkeypatch.setattr(sys, "argv", ["C:\\tools\\nyx.exe", "vol"])
+    monkeypatch.setenv("NYX_ALIAS", "jerga")  # invocación por el alias (wrapper de Windows)
+    with pytest.raises(SystemExit):
+        nyx.app.main()
+    nuevo = home / ".local" / "state" / "nyx"
+    assert capsys.readouterr().err.strip() == AVISO  # el aviso sale…
+    assert not viejo.exists() and (nuevo / "nyx.log").exists()  # …y la migración ocurrió de verdad
+    assert (nuevo / ".alias-avisado").exists()  # el marker, dentro del estado ya migrado
 
 
 # ------------------------------------------------------------------ NYX_*
@@ -96,11 +119,13 @@ def test_extension_de_voz_entorno_nyx():
 
 # ------------------------------------------------------- par uinput/autofiltro
 def test_par_uinput_autofiltro():
-    # el nombre del teclado virtual lleva el tag que los oyentes excluyen: par ATÓMICO
-    assert UINPUT_TAG == "nyx"
+    # el filtro casa el nombre del teclado virtual por nombre completo/prefijo: par ATÓMICO
     assert UINPUT_NAME == "nyx-virtual-keyboard"
     assert teclado_simulado(UINPUT_NAME)
+    assert teclado_simulado(UINPUT_NAME + " (1)")  # variante con sufijo: también es nuestro
     assert not teclado_simulado("AT Translated Set 2 keyboard")
+    assert not teclado_simulado("ONYX Pro")  # review 003: teclado REAL, el substring "nyx" no basta
+    assert not teclado_simulado("Teclado nyx de ONYX")  # solo casa como PREFIJO del nombre
     assert teclado_simulado("YDOTOOL virtual keyboard")  # ydotool sigue filtrado, May/min da igual
 
 

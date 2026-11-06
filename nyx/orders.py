@@ -61,6 +61,13 @@ def _pi_agent_dir() -> Path:
     return Path(os.environ.get("PI_CODING_AGENT_DIR") or Path.home() / ".pi" / "agent")
 
 
+def _pi_herdr_path(cfg: dict) -> Path:
+    """Ruta de pi-herdr: la configurada en [orders] pi_herdr o la instalación por defecto
+    de `pi install github:kcurtet/pi-herdr` (doctor y la orquestadora comparten esta ruta)."""
+    p = cfg.get("pi_herdr")
+    return Path(os.path.expanduser(p)) if p else _pi_agent_dir() / "git" / "github.com" / "kcurtet" / "pi-herdr"
+
+
 def _ext_file(path: Path) -> Path | None:
     """Ruta cargable con -e: el propio fichero, la extensión declarada en el package.json
     del paquete ("pi": {"extensions": [...]}) o su index.ts/js."""
@@ -108,8 +115,7 @@ def pi_args_for(cfg: dict, with_herdr: bool = True) -> list[str]:
             state = _pi_agent_dir() / "extensions" / "herdr-agent-state.ts"
             if state.is_file():
                 args += ["-e", str(state)]
-            herdr_pkg = Path(os.path.expanduser(cfg.get("pi_herdr") or "")) if cfg.get("pi_herdr") else \
-                _pi_agent_dir() / "git" / "github.com" / "kcurtet" / "pi-herdr"
+            herdr_pkg = _pi_herdr_path(cfg)
             ext = _ext_file(herdr_pkg)
             if ext:
                 args += ["-e", str(ext)]

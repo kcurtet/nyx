@@ -28,6 +28,9 @@ if ($Uninstall) {
     Remove-Item $Startup -ErrorAction SilentlyContinue
     $oldAlias = Join-Path (uv tool dir --bin).Trim() "jerga.cmd"
     Remove-Item $oldAlias -ErrorAction SilentlyContinue
+    # por si quedó de una instalación vieja: el uv tool jerga (jerga.exe) y su atajo de arranque
+    uv tool uninstall jerga 2>$null
+    Remove-Item (Join-Path ([Environment]::GetFolderPath("Startup")) "jerga.lnk") -ErrorAction SilentlyContinue
     Write-Host "Hecho. Se conservan tu config (%APPDATA%\nyx) y los modelos (~\.cache\huggingface)."
     exit 0
 }
@@ -61,6 +64,12 @@ Step "Instalando nyx ($spec)"
 uv tool install --force --python 3.12 $spec
 if ($LASTEXITCODE -ne 0) { throw "falló uv tool install" }
 uv tool update-shell | Out-Null
+
+# Upgrade desde jerga: su uv tool dejaba un jerga.exe REAL que, por PATHEXT, gana a nuestro
+# jerga.cmd (el usuario seguiría ejecutando el binario viejo sin aviso). Fuera, si existe.
+uv tool uninstall jerga 2>$null
+if ($LASTEXITCODE -eq 0) { Write-Host "   retirada la instalación vieja de jerga (uv tool)" }
+Remove-Item (Join-Path ([Environment]::GetFolderPath("Startup")) "jerga.lnk") -ErrorAction SilentlyContinue
 
 $binDir = (uv tool dir --bin).Trim()
 $gui = Join-Path $binDir "nyx-gui.exe"

@@ -428,7 +428,6 @@ def _aviso_alias() -> None:
 
 def main():
     _utf8_console()
-    _aviso_alias()
     args = sys.argv[1:]
     cmd = args[0] if args else "run"
     if cmd in ("-h", "--help", "help"):
@@ -441,6 +440,9 @@ def main():
 
     for msg in migrate.run():  # rutas viejas de jerga → nyx, antes de tocar la config
         log("[migración]", msg)
+    # El aviso va DESPUÉS de migrar: su marker crea STATE_DIR y antes lo creaba vacío,
+    # con lo que la migración veía «conviven» y el estado viejo no se movía nunca (review 003).
+    _aviso_alias()
     if cmd == "look":
         from .vision import main as look_main
 

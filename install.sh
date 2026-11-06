@@ -101,10 +101,12 @@ if [ "$SYSTEM" = 1 ]; then
     $SUDO mkdir -p /etc/udev/rules.d /etc/modules-load.d
     echo "$RULE" | $SUDO tee /etc/udev/rules.d/80-nyx-uinput.rules >/dev/null
     echo uinput | $SUDO tee /etc/modules-load.d/nyx-uinput.conf >/dev/null
-    $SUDO rm -f /etc/udev/rules.d/80-jerga-uinput.rules /etc/modules-load.d/jerga-uinput.conf
     $SUDO modprobe uinput 2>/dev/null || true
     $SUDO udevadm control --reload-rules 2>/dev/null && $SUDO udevadm trigger --name-match=uinput 2>/dev/null || true
   fi
+  # la regla de jerga se retira SIEMPRE (no solo al crear la nueva): en reinstalación el
+  # guard de arriba no entra y la vieja quedaría viva para siempre
+  $SUDO rm -f /etc/udev/rules.d/80-jerga-uinput.rules /etc/modules-load.d/jerga-uinput.conf
   getent group input >/dev/null || $SUDO groupadd -r input
   if ! id -nG "$USER" | tr ' ' '\n' | grep -qx input; then
     $SUDO usermod -aG input "$USER"
@@ -197,7 +199,7 @@ echo "  Uso: mantén Ctrl derecho, habla y suelta. La 1ª vez descarga el modelo
 echo "  Leer en voz alta: selecciona texto y pulsa Ctrl+0 (o di «léeme esto»)."
 command -v ollama >/dev/null && ! ollama list 2>/dev/null | grep -q lfm3-omni && \
   echo "  Opcional, para nyx look (ver la pantalla): ollama pull lfm3-omni"
-command -v herdr >/dev/null && echo "  Orquestadora por voz: nyx agent  (y luego «Trinity, …»)"
+command -v herdr >/dev/null && echo "  Orquestadora por voz: nyx agent  (y luego «Nyx, …»)"
 echo "  El alias jerga sigue funcionando (nyx te lo recuerda una vez); se retirará en una versión futura."
 [ -n "${NEED_RELOGIN:-}" ] && echo "  ${c_y}Cierra sesión y vuelve a entrar antes de usarlo (grupo input).${c_0}"
 true

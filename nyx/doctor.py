@@ -244,7 +244,7 @@ def doctor() -> int:
     oc = cfg["orders"]
     if oc["enabled"]:
         r.section(f"{oc['agent'].capitalize()} (órdenes por voz)")
-        from .orders import Orchestrator, _ext_file, _pi_agent_dir, choose_backend
+        from .orders import Orchestrator, _ext_file, _pi_herdr_path, choose_backend
 
         kind, reason = choose_backend(oc)
         if kind is None:
@@ -253,8 +253,7 @@ def doctor() -> int:
             r.ok("pi en segundo plano (sin herdr)", "funciona igual, pero sin paneles ni avisos de tus agentes de herdr")
         else:
             r.ok("herdr + pi", "en su propio workspace; vigila a tus agentes con pi-herdr")
-            pkg = Path(os.path.expanduser(oc["pi_herdr"])) if oc.get("pi_herdr") else \
-                _pi_agent_dir() / "git" / "github.com" / "kcurtet" / "pi-herdr"
+            pkg = _pi_herdr_path(oc)  # la misma ruta que usa la orquestadora (orders.py)
             if _ext_file(pkg):
                 r.ok(f"pi-herdr: {pkg}")
             else:

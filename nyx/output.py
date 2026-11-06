@@ -16,17 +16,16 @@ from .config import IS_WINDOWS, log
 from .platform_env import clean_child_env
 
 UINPUT_NAME = "nyx-virtual-keyboard"
-# Par ATÓMICO con el autofiltro de hotkey/app.keys: el tag es lo que los oyentes excluyen
-# para no escuchar las teclas que nosotros mismos pulsamos. Si cambias el nombre, cambia solo
-# UINPUT_NAME: el tag y los filtros lo derivan.
-UINPUT_TAG = UINPUT_NAME.split("-", 1)[0]  # "nyx"
+# Par ATÓMICO con el autofiltro de hotkey/app.keys: teclado_simulado casa ESTE nombre (por
+# prefijo), no un substring, para no escuchar las teclas que nosotros mismos pulsamos… sin
+# filtrar de paso un teclado real que lleve "nyx" dentro de su nombre (p.ej. «ONYX Pro»).
 
 
 def teclado_simulado(name: str) -> bool:
     """True si el dispositivo genera teclas por software (nosotros con uinput, o ydotool):
     escucharlo sería escuchar nuestras propias pulsaciones."""
     n = name.lower()
-    return UINPUT_TAG in n or "ydotool" in n
+    return n.startswith(UINPUT_NAME) or "ydotool" in n
 
 
 def _parse_combo(combo: str) -> list[str]:

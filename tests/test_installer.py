@@ -71,6 +71,31 @@ def test_windows_alias_jerga_cmd():
     assert '"nyx-gui.exe"' in ps1  # arranque automático
 
 
+def test_windows_retira_el_uv_tool_viejo_de_jerga():
+    """Review 003: en upgrade, el jerga.exe del uv tool viejo gana a jerga.cmd por PATHEXT
+    (el usuario seguiría en el binario viejo sin aviso): se desinstala (tolerante al fallo)
+    y se retira el jerga.lnk del Startup — al instalar y también en -Uninstall."""
+    ps1 = _ps1()
+    assert ps1.count("uv tool uninstall jerga 2>$null") == 2
+    assert ps1.count('"jerga.lnk"') == 2  # el atajo de arranque viejo, fuera en ambos caminos
+
+
+def test_la_regla_udev_vieja_se_retira_siempre():
+    """Review 003: el rm de la regla jerga estaba DENTRO del guard «no existe la nueva» →
+    en reinstalación la vieja sobrevivía para siempre."""
+    sh = _sh()
+    guard = sh.index("if [ ! -f /etc/udev/rules.d/80-nyx-uinput.rules ]; then")
+    fi = sh.index("\n  fi", guard)  # el fi que cierra ese guard
+    assert sh.index("rm -f /etc/udev/rules.d/80-jerga-uinput.rules", guard) > fi
+
+
+def test_el_mensaje_final_dice_nyx_no_trinity():
+    """Review 003: la wake «Trinity» murió con el renombrado; el mensaje final dice «Nyx, …»."""
+    sh = _sh()
+    assert "«Nyx, …»" in sh
+    assert "«Trinity" not in sh
+
+
 def test_ci_de_instalacion_comprueba_nyx_y_el_alias():
     yml = _yml()
     assert '"nyx/**"' in yml and '"jerga/**"' not in yml  # dispara con cambios en el paquete nyx

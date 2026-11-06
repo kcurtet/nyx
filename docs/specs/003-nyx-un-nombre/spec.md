@@ -13,7 +13,7 @@ Decir «Nyx, buenos días» y ejecutar `nyx launch steam` siendo la misma entida
 ## Objetivos
 
 1. Renombrar el paquete Python (`jerga` → `nyx`), CLI, unidad systemd, rutas de config/estado/notas y agente (nombre, wake word, workspace, persona).
-2. **Migración automática**: al primer arranque de `nyx`, las rutas antiguas (`~/.config/jerga`, `~/.local/share/jerga`, `~/Documentos/jerga`) se mueven a las nuevas con backup, no se duplican.
+2. **Migración automática**: al primer arranque de `nyx`, las rutas antiguas (`~/.config/jerga`, `~/.local/state/jerga`, `~/Documentos/jerga`) se mueven a las nuevas con backup, no se duplican.
 3. Alias de transición: `jerga` sigue funcionando (mismo binario, aviso de renombrado la primera vez) una o dos versiones.
 4. Repo GitHub renombrado `kcurtet/jerga` → `kcurtet/nyx` con URLs de instalador actualizadas (los redirects de GitHub cubren las viejas).
 5. Cuervo como símbolo: presente en README (texto/ASCII), en el docstring del CLI y como guiño en la persona de la SKILL — sin generar arte gráfico.
@@ -24,6 +24,7 @@ Decir «Nyx, buenos días» y ejecutar `nyx launch steam` siendo la misma entida
 - Cambiar personalidad, protocolos ni comportamientos de la agente: es un renombrado, la persona es la misma.
 - Rediseño de logo/branding gráfico.
 - Renombrar `herdr`, `pi` ni nada ajeno al repo.
+- Identidad de ventana GTK (application_id, clase CSS, namespace layer-shell `jerga`): se conserva a propósito — cambiarlos puede romper reglas de ventana del compositor del usuario; se renombrará cuando toque revisar la UI. (Decisión registrada en la review del 003.)
 
 ## Anti-objetivos
 
@@ -34,7 +35,7 @@ Decir «Nyx, buenos días» y ejecutar `nyx launch steam` siendo la misma entida
 
 **D1 — Paquete y CLI.** Directorio `jerga/` → `nyx/`; `pyproject.toml` name `nyx`, binario `nyx`; `python -m nyx`; todos los imports internos y tests actualizados. La unidad systemd pasa a `nyx.service` (el instalador crea la nueva y la vieja `jerga.service` se desactiva si existe). Docstring/README con el cuervo.
 
-**D2 — Rutas y migración.** Constantes: config `~/.config/nyx/`, estado `~/.local/share/nyx/`, notas `~/Documentos/nyx/`. En el arranque, si existe la ruta vieja y la nueva no: mover (renombrar) la vieja y dejar un backup comprimido o copia `.pre-nyx/` — decisión menor del builder, pero el resultado debe ser: datos intactos, una sola copia viva, huella de lo anterior. La migración se loguea y se cuenta en `nyx doctor`.
+**D2 — Rutas y migración.** Constantes: config `~/.config/nyx/`, estado `~/.local/state/nyx/`, notas `~/Documentos/nyx/`. En el arranque, si existe la ruta vieja y la nueva no: mover (renombrar) la vieja y dejar un backup comprimido o copia `.pre-nyx/` — decisión menor del builder, pero el resultado debe ser: datos intactos, una sola copia viva, huella de lo anterior. La migración se loguea y se cuenta en `nyx doctor`.
 
 **D3 — Alias `jerga`.** El instalador crea además un symlink/bin `jerga` que ejecuta `nyx` (mismo punto de entrada). Primera ejecución por el alias: una línea por stderr avisando del nuevo nombre (no en cada uso). A desaparecer en una versión futura (nota en README).
 
@@ -53,7 +54,7 @@ Decir «Nyx, buenos días» y ejecutar `nyx launch steam` siendo la misma entida
 ## Criterios de aceptación (Given/When/Then)
 
 - **A1** Given instalación limpia, when `nyx --version` / `nyx launch --list`, then funciona como hoy `jerga`.
-- **A2** Given `~/.config/jerga` y `~/.local/share/jerga` existentes, when primer arranque de `nyx`, then se migran a las rutas nuevas con backup y el segundo arranque no toca nada.
+- **A2** Given `~/.config/jerga` y `~/.local/state/jerga` existentes, when primer arranque de `nyx`, then se migran a las rutas nuevas con backup y el segundo arranque no toca nada.
 - **A3** Given el alias, when `jerga remind --list`, then funciona y la primera vez avisa del renombrado por stderr.
 - **A4** Given la SKILL nueva, when «Nyx, pon música», then despierta (wake «nyx») y responde como Nyx con el cuervo en la mirada; «Trinity» YA NO despierta (el alias de wake no existe: solo el nombre nuevo).
 - **A5** Given el instalador nuevo, when se instala en la máquina real, then `nyx.service` activo, `jerga.service` fuera, agente en workspace `nyx` idle.

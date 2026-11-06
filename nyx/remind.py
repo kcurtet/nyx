@@ -1,4 +1,8 @@
-"""Recordatorios one-shot: systemd-run crea un timer que dispara notify-send (respaldo visual) + jerga say (voz)."""
+"""Recordatorios one-shot: systemd-run crea un timer que dispara notify-send (respaldo visual) + nyx say (voz).
+
+Las unidades nuevas son nyx-remind-N (review 003); las jerga-remind-N heredadas del nombre
+anterior se siguen viendo en --list/--cancel y reservan su número: ningún timer viejo queda ciego.
+"""
 from __future__ import annotations
 
 import json
@@ -14,10 +18,13 @@ from .hotkey import is_running
 EXIT_OK, EXIT_ERROR = 0, 5
 
 _USO = 'uso: nyx remind "texto" en <cuándo> · nyx remind --list · nyx remind --cancel N'
-_PREFIJO = "jerga remind: "  # la Description de la unidad lleva el texto: --list lo recupera de ahí
+_PREFIJO = "nyx remind: "  # la Description de la unidad lleva el texto: --list lo recupera de ahí
+_PREFIJO_VIEJO = "jerga remind: "  # unidades heredadas del nombre anterior (spec 003)
+# systemctl mira ambos patrones: los timers jerga-remind-* viejos no quedan invisibles
+_PATRONES = ("nyx-remind-*", "jerga-remind-*")
 _REL = re.compile(r"^(\d+)\s*(s|seg(?:undos?)?|m|min(?:utos?)?|h|horas?)$")
 _HHMM = re.compile(r"^(\d{1,2}):(\d{2})$")
-_NUMERO = re.compile(r"^jerga-remind-(\d+)\.(?:timer|service)$")
+_NUMERO = re.compile(r"^(?:nyx|jerga)-remind-(\d+)\.(?:timer|service)$")
 _PROX = re.compile(r"^(\w{3} \d{4}-\d{2}-\d{2} \d{2}:\d{2})")
 
 
@@ -65,9 +72,9 @@ def parse_when(texto: str, now: datetime | None = None) -> Cuando:
 
 
 def fired_cmd(texto: str) -> list[str]:
-    """Comando que dispara el timer: notify-send + jerga say, con las comillas del texto escapadas para sh."""
+    """Comando que dispara el timer: notify-send + nyx say, con las comillas del texto escapadas para sh."""
     seguro = texto.replace("'", "'\\''")
-    return ["sh", "-c", f"notify-send -t 60000 Recordatorio '{seguro}'; jerga say 'Recordatorio: {seguro}'"]
+    return ["sh", "-c", f"notify-send -t 60000 Recordatorio '{seguro}'; nyx say 'Recordatorio: {seguro}'"]
 
 
 def _systemctl(args: list[str]) -> subprocess.CompletedProcess | None:
@@ -88,41 +95,47 @@ def _json_tabla(texto: str) -> list:
 
 
 def _unidades() -> list[dict]:
-    """Unidades jerga-remind-* cargadas (timers y servicios) con su description."""
-    res = _systemctl(["list-units", "jerga-remind-*", "--all", "--output=json"])
+    """Unidades nyx/jerga-remind-* cargadas (timers y servicios) con su description."""
+    res = _systemctl(["list-units", *_PATRONES, "--all", "--output=json"])
     if res is None or res.returncode != 0:
         raise _CtlError
     return [e for e in _json_tabla(res.stdout) if isinstance(e, dict)]
 
 
 def _numero_de(e: dict) -> int | None:
-    """Nº de la unidad jerga-remind-N (timer o servicio); None si el nombre no casa."""
+    """Nº de la unidad nyx/jerga-remind-N (timer o servicio); None si el nombre no casa."""
     m = _NUMERO.match(e.get("unit", ""))
     return int(m.group(1)) if m else None
 
 
 def next_unit() -> str:
-    """Nombre libre para el siguiente timer: máximo de las unidades existentes (timer o servicio) + 1."""
+    """Nombre libre para el siguiente timer: máximo de las unidades existentes (nyx o jerga
+    heredadas, timer o servicio) + 1."""
     numeros = [n for e in _unidades() if (n := _numero_de(e)) is not None]
-    return f"jerga-remind-{max(numeros, default=0) + 1}"
+    return f"nyx-remind-{max(numeros, default=0) + 1}"
 
 
 def _timers() -> list[dict]:
-    """Timers jerga-remind-* vivos, con unit y next (cuándo disparan)."""
-    res = _systemctl(["list-timers", "jerga-remind-*", "--all", "--output=json"])
+    """Timers nyx/jerga-remind-* vivos, con unit y next (cuándo disparan)."""
+    res = _systemctl(["list-timers", *_PATRONES, "--all", "--output=json"])
     if res is None or res.returncode != 0:
         raise _CtlError
     return [e for e in _json_tabla(res.stdout) if isinstance(e, dict)]
 
 
 def _descriptions() -> dict[int, str]:
-    """nº → texto del recordatorio (recuperado de la Description de la unidad); sin systemctl, vacío."""
+    """nº → texto del recordatorio (recuperado de la Description de la unidad, con el prefijo
+    nuevo o el heredado); sin systemctl, vacío."""
     try:
         out = {}
         for e in _unidades():
             if (n := _numero_de(e)) is not None:
                 desc = e.get("description", "")
-                out[n] = desc[len(_PREFIJO):] if desc.startswith(_PREFIJO) else desc
+                for p in (_PREFIJO, _PREFIJO_VIEJO):
+                    if desc.startswith(p):
+                        desc = desc[len(p):]
+                        break
+                out[n] = desc
         return out
     except _CtlError:
         return {}
@@ -169,10 +182,12 @@ def _cancelar(args: list[str]) -> int:
     except _CtlError:
         print("no puedo leer los recordatorios: systemctl no responde")
         return EXIT_ERROR
-    if not any(e.get("unit") == f"jerga-remind-{n}.timer" for e in timers):
+    timer = next((e.get("unit", "") for e in timers if _numero_de(e) == n), "")
+    if not timer:
         print(f"no hay recordatorio número {n}")
         return EXIT_ERROR
-    res = _systemctl(["stop", f"jerga-remind-{n}.timer", f"jerga-remind-{n}.service"])
+    base = timer.removesuffix(".timer")  # con SU prefijo (nyx o jerga heredado)
+    res = _systemctl(["stop", f"{base}.timer", f"{base}.service"])
     if res is None or res.returncode != 0:
         print(f"no pude cancelar el recordatorio {n}")
         return EXIT_ERROR

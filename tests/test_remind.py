@@ -1,4 +1,6 @@
-"""Tarea 2 del plan 002: jerga remind — systemctl/systemd-run construidos y mockeados, nunca ejecutados."""
+"""Plan 002 (remind) + review 003: unidades nyx-remind-N nuevas que disparan `nyx say`; las
+jerga-remind-N heredadas siguen visibles (list/cancel/next) para no dejar timers viejos ciegos.
+systemctl/systemd-run construidos y mockeados, nunca ejecutados."""
 import io
 import json
 import shlex
@@ -95,10 +97,11 @@ def test_parse_when_basura_valueerror():
 
 # --- fired_cmd -------------------------------------------------------------------------
 
-def test_fired_cmd_notify_send_mas_jerga_say():
+def test_fired_cmd_notify_send_mas_nyx_say():
+    # review 003: dispara `nyx say` — el binario siempre existe en instalaciones nuevas
     assert R.fired_cmd("apagar el fuego") == [
         "sh", "-c",
-        "notify-send -t 60000 Recordatorio 'apagar el fuego'; jerga say 'Recordatorio: apagar el fuego'",
+        "notify-send -t 60000 Recordatorio 'apagar el fuego'; nyx say 'Recordatorio: apagar el fuego'",
     ]
 
 
@@ -115,20 +118,27 @@ def test_fired_cmd_escapa_comillas():
 # --- next_unit -------------------------------------------------------------------------
 
 def test_next_unit_maximo_mas_uno(monkeypatch):
-    calls = _ctl(monkeypatch, units=[("jerga-remind-2.timer", "jerga remind: a"),
-                                     ("jerga-remind-5.timer", "jerga remind: b")])
-    assert R.next_unit() == "jerga-remind-6"  # máximo + 1, no «cuántos hay» + 1
-    assert calls == [["systemctl", "--user", "list-units", "jerga-remind-*", "--all", "--output=json"]]
+    calls = _ctl(monkeypatch, units=[("nyx-remind-2.timer", "nyx remind: a"),
+                                     ("nyx-remind-5.timer", "nyx remind: b")])
+    assert R.next_unit() == "nyx-remind-6"  # máximo + 1, no «cuántos hay» + 1
+    assert calls == [["systemctl", "--user", "list-units", "nyx-remind-*", "jerga-remind-*",
+                      "--all", "--output=json"]]  # mira AMBOS prefijos
 
 
 def test_next_unit_sin_existente_empieza_en_uno(monkeypatch):
     _ctl(monkeypatch)
-    assert R.next_unit() == "jerga-remind-1"
+    assert R.next_unit() == "nyx-remind-1"
 
 
 def test_next_unit_tambien_cuenta_servicios_rezagados(monkeypatch):
-    _ctl(monkeypatch, units=[("jerga-remind-7.service", "jerga remind: viejo")])
-    assert R.next_unit() == "jerga-remind-8"
+    _ctl(monkeypatch, units=[("nyx-remind-7.service", "nyx remind: viejo")])
+    assert R.next_unit() == "nyx-remind-8"
+
+
+def test_next_unit_cuenta_los_jerga_remind_heredados(monkeypatch):
+    """Review 003: un timer jerga-remind-4 vivo reserva su número: el nuevo no lo pisa."""
+    _ctl(monkeypatch, units=[("jerga-remind-4.timer", "jerga remind: viejo")])
+    assert R.next_unit() == "nyx-remind-5"
 
 
 # --- main: --list ----------------------------------------------------------------------
@@ -150,13 +160,27 @@ def test_list_tolerante_con_la_leyenda_de_list_timers(monkeypatch, capsys):
 
 def test_list_dos_con_cuando_y_texto(monkeypatch, capsys):
     _ctl(monkeypatch,
-         units=[("jerga-remind-2.timer", "jerga remind: sacar la basura"),
-                ("jerga-remind-5.timer", "jerga remind: apagar el fuego")],
-         timers=[("jerga-remind-2.timer", "Mon 2026-11-09 18:00:00 CET"),
-                 ("jerga-remind-5.timer", "Tue 2026-11-10 09:30:00 CET")])
+         units=[("nyx-remind-2.timer", "nyx remind: sacar la basura"),
+                ("nyx-remind-5.timer", "nyx remind: apagar el fuego")],
+         timers=[("nyx-remind-2.timer", "Mon 2026-11-09 18:00:00 CET"),
+                 ("nyx-remind-5.timer", "Tue 2026-11-10 09:30:00 CET")])
     assert R.main(["--list"]) == R.EXIT_OK
     assert capsys.readouterr().out.splitlines() == [
         "2) Mon 2026-11-09 18:00 — sacar la basura",
+        "5) Tue 2026-11-10 09:30 — apagar el fuego",
+    ]
+
+
+def test_list_muestra_los_jerga_remind_heredados(monkeypatch, capsys):
+    """Review 003: un timer jerga-remind-N vivo NO queda invisible en --list."""
+    _ctl(monkeypatch,
+         units=[("jerga-remind-2.timer", "jerga remind: sacar la basura"),
+                ("nyx-remind-5.timer", "nyx remind: apagar el fuego")],
+         timers=[("jerga-remind-2.timer", "Mon 2026-11-09 18:00:00 CET"),
+                 ("nyx-remind-5.timer", "Tue 2026-11-10 09:30:00 CET")])
+    assert R.main(["--list"]) == R.EXIT_OK
+    assert capsys.readouterr().out.splitlines() == [
+        "2) Mon 2026-11-09 18:00 — sacar la basura",  # texto recuperado del prefijo viejo
         "5) Tue 2026-11-10 09:30 — apagar el fuego",
     ]
 
@@ -177,11 +201,21 @@ def test_list_sin_systemctl(monkeypatch, capsys):
 
 def test_cancel_para_timer_y_servicio(monkeypatch, capsys):
     calls = _ctl(monkeypatch,
+                 units=[("nyx-remind-3.timer", "nyx remind: apagar el fuego")],
+                 timers=[("nyx-remind-3.timer", "Mon 2026-11-09 18:00:00 CET")])
+    assert R.main(["--cancel", "3"]) == R.EXIT_OK
+    assert ["systemctl", "--user", "stop", "nyx-remind-3.timer", "nyx-remind-3.service"] in calls
+    assert "apagar el fuego" in capsys.readouterr().out
+
+
+def test_cancel_al_heredado_para_su_unidad_jerga(monkeypatch, capsys):
+    """Review 003: cancelar un jerga-remind-N para SU unidad (con su prefijo), no una nyx-N fantasma."""
+    calls = _ctl(monkeypatch,
                  units=[("jerga-remind-3.timer", "jerga remind: apagar el fuego")],
                  timers=[("jerga-remind-3.timer", "Mon 2026-11-09 18:00:00 CET")])
     assert R.main(["--cancel", "3"]) == R.EXIT_OK
     assert ["systemctl", "--user", "stop", "jerga-remind-3.timer", "jerga-remind-3.service"] in calls
-    assert "apagar el fuego" in capsys.readouterr().out
+    assert "apagar el fuego" in capsys.readouterr().out  # el texto sale del prefijo viejo
 
 
 def test_cancel_inexistente(monkeypatch, capsys):
@@ -207,8 +241,8 @@ def test_cancel_falla_al_parar(monkeypatch, capsys):
 def test_crear_20m_systemd_run_con_lista_de_args(monkeypatch, capsys):
     calls = _ctl(monkeypatch)
     assert R.main(["apagar el fuego", "en", "20m"]) == R.EXIT_OK
-    assert calls[-1] == ["systemd-run", "--user", "--on-active=1200", "--unit=jerga-remind-1",
-                         "--description=jerga remind: apagar el fuego",
+    assert calls[-1] == ["systemd-run", "--user", "--on-active=1200", "--unit=nyx-remind-1",
+                         "--description=nyx remind: apagar el fuego",
                          *R.fired_cmd("apagar el fuego")]
     out = capsys.readouterr().out
     assert "apagar el fuego" in out and "en 20 minutos" in out
@@ -216,9 +250,10 @@ def test_crear_20m_systemd_run_con_lista_de_args(monkeypatch, capsys):
 
 
 def test_crear_dos_no_se_pisan(monkeypatch):
+    # cuenta también los jerga-remind heredados: el número nuevo no pisa al viejo
     calls = _ctl(monkeypatch, units=[("jerga-remind-1.timer", "jerga remind: x")])
     assert R.main(["y", "en", "5m"]) == R.EXIT_OK
-    assert calls[-1][3] == "--unit=jerga-remind-2"
+    assert calls[-1][3] == "--unit=nyx-remind-2"
 
 
 def test_crear_mas_de_una_hora_avisa_se_pierde(monkeypatch, capsys):
@@ -243,7 +278,7 @@ def test_crear_hhmm_futuro_on_calendar(monkeypatch, capsys):
     calls = _ctl(monkeypatch)
     assert R.main(["apagar el fuego", "en", "18:00"]) == R.EXIT_OK
     assert calls[-1][2] == "--on-calendar=2026-11-09 18:00:00"
-    assert calls[-1][3] == "--unit=jerga-remind-1"
+    assert calls[-1][3] == "--unit=nyx-remind-1"
 
 
 def test_crear_texto_con_comillas_llega_escapado(monkeypatch):
