@@ -2,7 +2,16 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 import jerga.launch as L
+
+
+@pytest.fixture(autouse=True)
+def _plataforma_linux(monkeypatch):
+    """La suite corre como en Linux por defecto: main() no debe cortar por sys.platform
+    antes de nada. El test del stub win32 se pone a win32 él mismo (y gana: corre después)."""
+    monkeypatch.setattr(L.sys, "platform", "linux")
 
 DESKTOP = """[Desktop Entry]
 Type=Application
@@ -71,6 +80,12 @@ def test_parse_kv_pares_clave_valor():
     assert L.parse_kv(ACF_ZOMBOID) == {"appid": "108600", "name": "Project Zomboid"}
 
 
+def test_parse_kv_normaliza_claves_a_minusculas():
+    # ACF real: claves con mayúsculas variables; tras el parseo, siempre minúsculas
+    acf = '"appmanifest"\n{\n\t"AppID"\t\t"268500"\n\t"Name"\t\t"XCOM 2"\n}\n'
+    assert L.parse_kv(acf) == {"appid": "268500", "name": "XCOM 2"}
+
+
 def test_collect_acf_sin_desktop_aparece(monkeypatch, tmp_path):
     cands = _scan(monkeypatch, tmp_path, acfs=[("appmanifest_108600.acf", ACF_ZOMBOID)])
     assert [(c.name, c.kind, c.appid) for c in cands] == [("Project Zomboid", "steam", "108600")]
@@ -111,6 +126,27 @@ def test_collect_juego_en_dos_fuentes_no_se_duplica(monkeypatch, tmp_path):
                   acfs=[("appmanifest_108600.acf", ACF_ZOMBOID)])
     assert len(cands) == 1
     assert cands[0].kind == "desktop"
+
+
+XCOM_DESKTOP = """[Desktop Entry]
+Name=XCOM® 2
+Exec=steam steam://rungameid/268500
+"""
+
+ACF_XCOM = """"appmanifest"
+{
+	"appid"		"268500"
+	"name"		"XCOM 2"
+}
+"""
+
+
+def test_collect_dedupe_por_appid_de_exec(monkeypatch, tmp_path):
+    # el atajo .desktop apunta a steam://rungameid/268500: el appmanifest del 268500 sobra,
+    # aunque su nombre plegado ("xcom 2") no coincida con el del .desktop ("xcom® 2")
+    cands = _scan(monkeypatch, tmp_path, desktops=[("XCOM 2.desktop", XCOM_DESKTOP)],
+                  acfs=[("appmanifest_268500.acf", ACF_XCOM)])
+    assert [(c.name, c.kind, c.appid) for c in cands] == [("XCOM® 2", "desktop", "268500")]
 
 
 def test_collect_sin_name_usa_name_locale(monkeypatch, tmp_path):
@@ -197,6 +233,15 @@ def test_match_genericname_y_keywords_menor_peso(monkeypatch, tmp_path):
     assert [c.name for c in r] == ["Kate Editor", "Otro", "Tercero"]  # Name (50) por delante de genérico/keywords (25)
 
 
+def test_match_cubre_name_es(monkeypatch, tmp_path):
+    # Name=Files con Name[es]=Archivos: por cualquiera de los dos se encuentra, mismo peso
+    cands = _scan(monkeypatch, tmp_path, desktops=[
+        ("org.gnome.Files.desktop", "[Desktop Entry]\nName=Files\nName[es]=Archivos\n"),
+    ])
+    assert [c.alt for c in cands] == ["archivos"]
+    assert [c.name for c in L.match("archivos", cands)] == ["Files"]
+
+
 # --- Tarea 2: entorno y ejecución -----------------------------------------------------
 
 def _pop_capturado(monkeypatch, pops):
@@ -230,6 +275,7 @@ def test_launch_env_fallo_de_systemctl_se_ignora(monkeypatch):
 def test_launch_usa_gtk_launch_o_steam(monkeypatch):
     calls = []
     _pop_capturado(monkeypatch, calls)
+    monkeypatch.setattr(L.shutil, "which", lambda b: "/usr/bin/" + b)  # CI sin gtk-launch/steam en PATH
     L.launch(L.Candidate("Project Zomboid", "project zomboid", "desktop", desktop_id="Project Zomboid"))
     L.launch(L.Candidate("XCOM 2", "xcom 2", "steam", appid="268500"))
     assert calls[0][0][0][:2] == ["gtk-launch", "Project Zomboid"]
@@ -245,6 +291,7 @@ def test_main_unica_candidata_lanza_y_ok(monkeypatch, tmp_path, capsys):
     _scan(monkeypatch, tmp_path, desktops=[("Project Zomboid.desktop", DESKTOP)])
     pops = []
     _pop_capturado(monkeypatch, pops)
+    monkeypatch.setattr(L.shutil, "which", lambda b: "/usr/bin/" + b)
     assert L.main(["zomboid"]) == L.EXIT_OK
     assert capsys.readouterr().out == "OK Project Zomboid\n"
     assert pops[0][0][0][:2] == ["gtk-launch", "Project Zomboid"]
@@ -286,6 +333,7 @@ def test_main_pick_lanza_la_elegida(monkeypatch, tmp_path, capsys):
     ])
     pops = []
     _pop_capturado(monkeypatch, pops)
+    monkeypatch.setattr(L.shutil, "which", lambda b: "/usr/bin/" + b)
     assert L.main(["total war", "--pick", "2"]) == L.EXIT_OK
     assert capsys.readouterr().out == "OK Total War: WARHAMMER\n"
     assert pops[0][0][0][:2] == ["gtk-launch", "total-war-warhammer"]  # la segunda de la lista numerada

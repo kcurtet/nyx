@@ -20,6 +20,7 @@ _STEAM_ARTEFACTOS = re.compile(r"proton|steam linux runtime|redistributable|voic
 _SESSION_KEYS = ("DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "XAUTHORITY")
 _VDF_PATH = re.compile(r'"path"\s+"([^"]+)"')
 _ACF_PAR = re.compile(r'"([^"]+)"\s+"([^"]*)"')
+_RUNGAMEID = re.compile(r"steam://rungameid/(\d+)")
 
 
 @dataclass(frozen=True)
@@ -28,11 +29,15 @@ class Candidate:
     folded: str  # _fold(name), precalculado
     kind: str  # "desktop" | "steam"
     desktop_id: str | None = None  # id para gtk-launch (subdirectorios → guiones)
-    appid: str | None = None  # juego Steam
-    path: str = ""  # fichero de origen (debug)
+    appid: str | None = None  # juego Steam (del ACF o del steam://rungameid/ del Exec)
     filefold: str = ""  # _fold del nombre de fichero (desktop_id o stem del ACF), precalculado
     generic: str = ""  # _fold(GenericName=), precalculado
     keywords: str = ""  # _fold(Keywords=), precalculado
+    alt: str = ""  # _fold(Name[es]=) si difiere del principal, precalculado
+
+    def sort_key(self) -> tuple[str, str]:
+        """Orden determinista compartido por collect() y match(): (nombre plegado, id)."""
+        return (self.folded, self.desktop_id or self.appid or "")
 
 
 def desktop_dirs() -> list[Path]:
@@ -65,10 +70,10 @@ def parse_desktop(text: str) -> dict[str, str]:
 
 
 def parse_kv(text: str) -> dict[str, str]:
-    """Pares "clave" "valor" de un appmanifest ACF (formato KV de Valve)."""
+    """Pares "clave" "valor" de un appmanifest ACF (formato KV de Valve); claves normalizadas a minúsculas."""
     out: dict[str, str] = {}
     for key, value in _ACF_PAR.findall(text):
-        out.setdefault(key, value)
+        out.setdefault(key.lower(), value)
     return out
 
 
@@ -123,13 +128,17 @@ def _desktop_cands() -> list[Candidate]:
             if desktop_id in vistos:
                 continue
             vistos.add(desktop_id)
-            out.append(Candidate(nombre, _fold(nombre), "desktop", desktop_id=desktop_id, path=str(f),
+            alt = _fold(datos.get("Name[es]", ""))
+            rungame = _RUNGAMEID.search(datos.get("Exec", ""))
+            out.append(Candidate(nombre, _fold(nombre), "desktop", desktop_id=desktop_id,
+                                 appid=rungame.group(1) if rungame else None,
                                  filefold=_fold(desktop_id), generic=_fold(datos.get("GenericName", "")),
-                                 keywords=_fold(datos.get("Keywords", ""))))
+                                 keywords=_fold(datos.get("Keywords", "")),
+                                 alt=alt if alt != _fold(nombre) else ""))
     return out
 
 
-def _steam_cands(ya: set[str]) -> list[Candidate]:
+def _steam_cands(ya: set[str], ya_appids: set[str]) -> list[Candidate]:
     out = []
     for root in steam_roots():
         for f in sorted((root / "steamapps").glob("appmanifest_*.acf")):
@@ -143,10 +152,11 @@ def _steam_cands(ya: set[str]) -> list[Candidate]:
             if _STEAM_ARTEFACTOS.search(nombre):
                 continue
             folded = _fold(nombre)
-            if folded in ya:  # mismo juego ya presente como .desktop
+            if folded in ya or appid in ya_appids:  # juego ya presente como .desktop
                 continue
             ya.add(folded)
-            out.append(Candidate(nombre, folded, "steam", appid=appid, path=str(f),
+            ya_appids.add(appid)
+            out.append(Candidate(nombre, folded, "steam", appid=appid,
                                  filefold=_fold(f.stem)))
     return out
 
@@ -154,17 +164,17 @@ def _steam_cands(ya: set[str]) -> list[Candidate]:
 def collect() -> list[Candidate]:
     """Todas las candidatas, orden determinista (nombre plegado, id)."""
     desktops = _desktop_cands()
-    steam = _steam_cands({c.folded for c in desktops})
-    return sorted(desktops + steam, key=lambda c: (c.folded, c.desktop_id or c.appid or ""))
+    steam = _steam_cands({c.folded for c in desktops}, {c.appid for c in desktops if c.appid})
+    return sorted(desktops + steam, key=Candidate.sort_key)
 
 
 def _score(q: str, c: Candidate) -> int:
-    """Puntos de una candidata: exacto 100, Name 50, fichero 40, genérico/keywords 25."""
+    """Puntos de una candidata: exacto 100, Name o Name[es] 50, fichero 40, genérico/keywords 25."""
     if q == c.folded:
         return 100
     if len(q) < 3:  # subcadenas cortas matchean media biblioteca
         return 0
-    if q in c.folded:
+    if q in c.folded or q in c.alt:
         return 50
     if q in c.filefold:
         return 40
@@ -182,7 +192,7 @@ def match(query: str, cands: list[Candidate]) -> list[Candidate]:
     exactos = [c for c, s in scored if s == 100]
     if len(exactos) == 1:  # un exacto único gana a todos los parciales
         return exactos
-    scored.sort(key=lambda par: (-par[1], par[0].folded, par[0].desktop_id or par[0].appid or ""))
+    scored.sort(key=lambda par: (-par[1], *par[0].sort_key()))
     return [c for c, _ in scored]
 
 
