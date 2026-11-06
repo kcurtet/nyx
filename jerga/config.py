@@ -140,6 +140,7 @@ DEFAULTS: dict = {
             "al CI/CD": "a la integración continua",
             "CI/CD": "integración continua",
             "YAML": "yámal",
+            "JSON": "yéison",
             "Claude": "clod",
             "docker compose": "dóker, compóus",
             "pipeline": "paip-láin",
