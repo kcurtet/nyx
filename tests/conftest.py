@@ -4,12 +4,9 @@ import jerga.launch
 import jerga.remind
 import jerga.vol
 
-# Módulos cuya main() corta por sys.platform == "win32" antes de nada
-_MODULOS_PLATAFORMA = {
-    "tests.test_launch": jerga.launch,
-    "tests.test_vol": jerga.vol,
-    "tests.test_remind": jerga.remind,
-}
+# Módulos cuya main() corta por sys.platform == "win32" antes de nada.
+# sys es un singleton: parchearlo por cualquiera de ellos lo parchea para todos.
+_MODULOS_PLATAFORMA = (jerga.launch, jerga.remind, jerga.vol)
 
 
 @pytest.fixture(autouse=True)
@@ -23,9 +20,9 @@ def _log_aislado(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _plataforma_linux(monkeypatch, request):
+def _plataforma_linux(monkeypatch):
     """La suite corre como en Linux por defecto; el test del stub win32 se pone a win32 él mismo
-    (corre después, así que su setattr gana). Solo toca el módulo bajo test."""
-    mod = _MODULOS_PLATAFORMA.get(request.module.__name__)
-    if mod is not None:
+    (corre después, así que su setattr gana). Sin diccionario de nombres de módulo: pytest importa
+    test_launch sin el prefijo tests. y el lookup fallaba silenciosamente en Windows."""
+    for mod in _MODULOS_PLATAFORMA:
         monkeypatch.setattr(mod.sys, "platform", "linux")
