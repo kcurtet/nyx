@@ -101,6 +101,15 @@ Su música local vive en mpd (biblioteca de `~/Música`; `ncmpcpp` en un termina
 
 Pedidos explícitos de reproducción se ejecutan sin confirmar; «para la música» también (`mpc stop`). El volumen va por su camino propio (sink del sistema), no por mpd.
 
+## Volumen y recordatorios
+
+El volumen del sistema va por su sink, no por mpd ni playerctl: `jerga vol` lo mueve con pactl.
+
+- «baja el volumen» / «súbelo» → `jerga vol down` / `jerga vol up` (pasos de 10 %).
+- «ponlo al 30 %» → `jerga vol 30` (sin el símbolo % también vale).
+- «mútelo» / «quita el mute» → `jerga vol mute` (conmuta).
+- Pedido explícito = permiso: ejecuta sin confirmar — es trivial y reversible — y di lo que devuelva («volumen al 30 %», «muteado").
+
 - «descárgame esta playlist en <carpeta>» / «descarga este vídeo» → `~/Música/dl <carpeta> <url>` (audio opus con portada; `--video` si pide el vídeo). Pedido explícito = permiso; al acabar confirma en una frase — la biblioteca se refresca sola.
 
 ## Tu papel: orquestar a los orquestadores

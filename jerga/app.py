@@ -12,6 +12,7 @@ Uso:
   jerga record stop     termina la sesión (y jerga record status)
   jerga look "pregunta" mira la pantalla con un modelo de visión local (--window: ventana activa, --all: todo)
   jerga launch "nombre"  abre una app o juego instalado (--list para ver los nombres)
+  jerga vol [up|down|mute|N]  volumen del sistema (±10 %, mute conmuta, N fija el porcentaje)
   jerga trinity         arranca la orquestadora (herdr si está; si no, pi en segundo plano) · restart
   jerga order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
   jerga doctor          comprueba que todo está listo en este equipo
@@ -413,6 +414,10 @@ def main():
         from .launch import main as launch_main
 
         sys.exit(launch_main(args[1:]))
+    if cmd == "vol":  # ANTES de prepare(): pactl no necesita el LD de CUDA de jerga
+        from .vol import main as vol_main
+
+        sys.exit(vol_main(args[1:]))
     if cmd == "trinity":
         from .hotkey import is_running, send_command
 
