@@ -9,6 +9,8 @@ Al final de la frase (se pueden encadenar: "…interrogante envía"):
   borra eso           → no pega nada
 Al principio:
   código …            → `…`
+  ruta …              → path con símbolos hablados, pegado sin espacios
+                        ("ruta tilde barra dev barra docs punto md" → ~/dev/docs.md)
 En cualquier sitio:
   nueva línea         → salto de línea
   punto y aparte      → punto + salto de línea
@@ -44,6 +46,39 @@ def _fold(s: str) -> str:
 
 def _cap(s: str) -> str:
     return s[:1].upper() + s[1:]
+
+
+# Símbolos hablados del comando «ruta» (matching plegado, como todo el sistema).
+# Frases de dos palabras antes que sus partes: "barra invertida" gana a "barra".
+_PATH_SYMBOLS = {
+    "tilde": "~",
+    "barra": "/",
+    "contrabarra": "\\",
+    "barra invertida": "\\",
+    "punto": ".",
+    "guion": "-",
+    "guion bajo": "_",
+    "bajo": "_",
+    "dos puntos": ":",
+    "espacio": " ",
+    "arroba": "@",
+}
+
+
+def _join_path(body: str) -> str:
+    """Cuerpo de «ruta …»: mapea símbolos hablados y une todo SIN espacios."""
+    words = body.split()
+    out = []
+    i = 0
+    while i < len(words):
+        pair = " ".join(_fold(w) for w in words[i:i + 2])
+        if pair in _PATH_SYMBOLS:  # primero la frase larga ("guion bajo", "dos puntos"…)
+            out.append(_PATH_SYMBOLS[pair])
+            i += 2
+        else:
+            out.append(_PATH_SYMBOLS.get(_fold(words[i]), words[i]))
+            i += 1
+    return "".join(out)
 
 
 # ------------------------------------------------------------- en medio
@@ -119,6 +154,13 @@ def parse(text: str, commands: dict) -> Result:
         m = re.match(r"[\s¿¡]*" + re.escape(_fold(w)) + r"[\s,;:.]+", _fold(res.text))
         if m and res.text[m.end():].strip(_PUNCT):
             res.text = "`" + res.text[m.end():].rstrip(_PUNCT) + "`"
+            break
+
+    # ---- al principio: "ruta tilde barra dev" → ~/dev (tras «código»: "código ruta …" gana código)
+    for w in sorted(commands.get("path_words") or [], key=len, reverse=True):
+        m = re.match(r"[\s¿¡]*" + re.escape(_fold(w)) + r"[\s,;:.]+", _fold(res.text))
+        if m and res.text[m.end():].strip(_PUNCT):
+            res.text = _join_path(res.text[m.end():].rstrip(_PUNCT))
             break
 
     # ---- en cualquier sitio

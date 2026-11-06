@@ -47,7 +47,11 @@ DEFAULTS: dict = {
         "compute_type": "auto",  # auto → float16 en GPU, int8 en CPU
         "language": "es",
         "beam_size": 5,
-        "vocabulary": [],
+        # Palabras del comando «ruta» (símbolos hablados de paths), para que Whisper las espere.
+        "vocabulary": [
+            "ruta", "tilde", "barra", "contrabarra", "barra invertida", "punto", "guion",
+            "guion bajo", "bajo", "dos puntos", "espacio", "arroba",
+        ],
     },
     "replacements": {},
     "commands": {
@@ -60,6 +64,7 @@ DEFAULTS: dict = {
         "send_words": ["envía", "enviar"],
         "discard_words": ["borra eso", "bórralo"],
         "code_words": ["código"],
+        "path_words": ["ruta"],
         "newline_words": ["nueva línea", "salto de línea"],
         "paragraph_words": ["punto y aparte"],
         # Frases-orden (solo si es TODO lo que dices): leer en voz alta lo seleccionado / callar.

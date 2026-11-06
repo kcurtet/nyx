@@ -144,6 +144,7 @@ Palabras que no se escriben, sino que hacen algo. Se ignoran tildes y mayúscula
 | *"revisa los logs **envía**"* | pega y pulsa **Enter** (ideal para chats y agentes) |
 | *"… **borra eso**"* | no pega nada |
 | *"**código** git status"* | `` `git status` `` |
+| *"**ruta** tilde barra dev barra jerga punto md"* | `~/dev/jerga.md` (paths: símbolos hablados pegados; «espacio» = espacio real) |
 | *"hola mundo **entre comillas**"* | "hola mundo" |
 | *"feature login **en minúsculas**"* | feature login |
 | *"… **nueva línea** …"* / *"… **punto y aparte** …"* | salto de línea |

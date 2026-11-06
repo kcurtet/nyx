@@ -76,6 +76,64 @@ def test_codigo():
     assert p("Abre el código fuente.").text == "Abre el código fuente."  # no está al principio
 
 
+# ------------------------------------------------------- «ruta»: paths con símbolos hablados (004)
+RCMD = {**CMD, "path_words": ["ruta"]}
+
+
+def rp(text):
+    return parse(text, RCMD)
+
+
+def test_ruta_simbolos():  # A1, A2
+    assert rp("ruta tilde barra dev barra música").text == "~/dev/música"
+    assert rp("ruta docs barra specs punto md").text == "docs/specs.md"
+    assert rp("ruta tilde barra dev barra jerga punto md.").text == "~/dev/jerga.md"  # punto final de Whisper
+
+
+def test_ruta_espacio_real():  # A3
+    assert rp("ruta mi espacio proyecto").text == "mi proyecto"
+
+
+def test_ruta_doble_punto_no_es_simbolo():  # A4: «doble punto» NO está en el mapa, va palabra a palabra
+    assert rp("ruta doble punto barra barra docs").text == "doble.//docs"
+    assert rp("ruta punto punto barra docs").text == "../docs"  # así se escribe ../ en v1
+
+
+def test_ruta_mayusculas_y_tildes():  # A5: matching plegado, palabras no-símbolo conservan su grafía
+    assert rp("RUTA Guión Bajo barra X").text == "_/X"
+
+
+def test_ruta_contrabarra_y_variantes():
+    assert rp("ruta contrabarra Windows barra System32").text == "\\Windows/System32"
+    assert rp("ruta barra invertida etc").text == "\\etc"
+    assert rp("ruta user arroba host dos puntos 8080").text == "user@host:8080"
+
+
+def test_ruta_palabra_sola():  # A6: comportamiento estándar, se escribe tal cual
+    r = rp("Ruta.")
+    assert (r.text, r.send, r.discard) == ("Ruta.", False, False)
+
+
+def test_ruta_no_interfiere_con_codigo():  # A7 + caso límite: «código ruta …» gana código
+    assert rp("código git status").text == "`git status`"
+    assert rp("Código ruta tilde barra dev").text == "`ruta tilde barra dev`"
+
+
+def test_ruta_en_medio_de_frase_no_hace_nada():  # caso límite: es comando de prefijo
+    assert rp("La ruta del archivo es larga.").text == "La ruta del archivo es larga."
+
+
+def test_ruta_encadena_con_envia():
+    r = rp("ruta tilde barra dev envía")
+    assert (r.text, r.send) == ("~/dev", True)
+
+
+def test_ruta_en_config_por_defecto():  # D3: el mapa y el comando en el vocabulario de [stt]
+    assert DEFAULTS["commands"]["path_words"] == ["ruta"]
+    assert {"ruta", "tilde", "barra", "contrabarra", "barra invertida", "punto", "guion",
+            "guion bajo", "bajo", "dos puntos", "espacio", "arroba"} <= set(DEFAULTS["stt"]["vocabulary"])
+
+
 def test_comillas_y_minusculas():
     assert p("Hola mundo, entre comillas.").text == '"Hola mundo"'
     assert p("Feature login con OAuth en minúsculas.").text == "feature login con OAuth"
