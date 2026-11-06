@@ -63,6 +63,7 @@ Revisa GPU, micrófono, tecla global, portapapeles y widget, y dice cómo arregl
 | **Ctrl+0** o «léeme esto» | lee el texto seleccionado (otra vez, o «calla»: se calla) |
 | `jerga toggle` / `start` / `stop` / `cancel` | control del dictado desde atajos o scripts |
 | `jerga say "…"` / `jerga hush` | leer texto en voz alta / callar |
+| `jerga launch "steam"` | abre una app o juego instalado (`--list` para ver los nombres) |
 | `jerga keys` | muestra el nombre de las teclas que pulses (para cambiar la tecla) |
 | `jerga config` | ruta del archivo de configuración |
 
