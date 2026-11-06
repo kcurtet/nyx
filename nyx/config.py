@@ -61,7 +61,7 @@ DEFAULTS: dict = {
         "exclamation_words": ["exclamación", "signo de exclamación", "punto de exclamación"],
         "spanish_open_marks": True,  # añade "¿" / "¡" al principio
         "quote_words": ["entre comillas"],
-        "lowercase_words": ["en minúsculas"],
+        "lowercase_words": ["en minúsculas", "minúsculas"],
         "send_words": ["envía", "enviar"],
         "discard_words": ["borra eso", "bórralo"],
         "code_words": ["código"],

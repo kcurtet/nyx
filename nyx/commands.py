@@ -4,7 +4,7 @@ Al final de la frase (se pueden encadenar: "…interrogante envía"):
   interrogante        → ¿…?
   exclamación         → ¡…!
   entre comillas      → "…"
-  en minúsculas       → sin mayúscula inicial ni punto final
+  KX minúsculas       → minusculiza la palabra anterior (inline)
   envía               → pega y pulsa Enter
   borra eso           → no pega nada
 Al principio:
@@ -96,10 +96,24 @@ def _inline(text: str, words: list[str], insert: str, capitalize_next: bool) -> 
     return text
 
 
+def _lowercase_prev(text: str, words: list[str]) -> str:
+    """"KX minúsculas" → minusculiza la palabra ANTERIOR al comando y lo quita."""
+    cambio = False
+    for w in sorted(words, key=len, reverse=True):
+        rx = re.compile(r"(\w+)[\s,;:.¿¡]*" + re.escape(_fold(w)) + r"(?!\w)")
+        while True:
+            m = rx.search(_fold(text))
+            if not m:
+                break
+            cambio = True
+            text = text[: m.start()] + m.group(1).lower() + text[m.end():]
+    return text.rstrip(_PUNCT) if cambio else text
+
+
 # ------------------------------------------------------------- al final
 _SUFFIX_KINDS = (
     "question_words", "exclamation_words", "quote_words",
-    "lowercase_words", "send_words", "discard_words",
+    "send_words", "discard_words",
 )
 _MARKS = {"question_words": ("¿", "?"), "exclamation_words": ("¡", "!")}
 
@@ -140,9 +154,6 @@ def parse(text: str, commands: dict) -> Result:
                 res.text = (opening + _cap(body) if open_marks else body) + closing
             elif kind == "quote_words":
                 res.text = '"' + body.rstrip(_PUNCT).lstrip("¿¡ ") + '"'
-            elif kind == "lowercase_words":
-                body = body.rstrip(_PUNCT)
-                res.text = body[:1].lower() + body[1:]
             elif kind == "send_words":
                 res.send = True
                 res.text = body.rstrip(_SOFT)
@@ -164,6 +175,7 @@ def parse(text: str, commands: dict) -> Result:
             break
 
     # ---- en cualquier sitio
+    res.text = _lowercase_prev(res.text, commands.get("lowercase_words") or [])
     res.text = _inline(res.text, commands.get("paragraph_words") or [], ".\n", capitalize_next=True)
     res.text = _inline(res.text, commands.get("newline_words") or [], "\n", capitalize_next=False)
     return res

@@ -59,7 +59,7 @@ vocabulary = [
 #   "has hecho el push interrogante"   →  ¿Has hecho el push?
 #   "ya pasa el build exclamación"     →  ¡Ya pasa el build!
 #   "hola mundo entre comillas"        →  "hola mundo"
-#   "feature login en minúsculas"      →  feature login
+#   "pon commit KX en minúsculas"     →  pon commit kx (la palabra anterior)
 #   "revisa los logs envía"            →  pega y pulsa Enter
 #   "… borra eso"                      →  no pega nada
 # Al principio:  "código git status"   →  `git status`
@@ -74,7 +74,7 @@ question_words = ["interrogante", "signo de interrogación"]
 exclamation_words = ["exclamación", "signo de exclamación", "punto de exclamación"]
 spanish_open_marks = true   # añadir "¿" / "¡" al principio
 quote_words = ["entre comillas"]
-lowercase_words = ["en minúsculas"]
+lowercase_words = ["en minúsculas", "minúsculas"]
 send_words = ["envía", "enviar"]
 discard_words = ["borra eso", "bórralo"]
 code_words = ["código"]

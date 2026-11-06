@@ -141,7 +141,11 @@ def test_ruta_en_config_por_defecto():  # D3: el mapa y el comando en el vocabul
 
 def test_comillas_y_minusculas():
     assert p("Hola mundo, entre comillas.").text == '"Hola mundo"'
-    assert p("Feature login con OAuth en minúsculas.").text == "feature login con OAuth"
+    # inline: minusculiza la palabra ANTERIOR al comando
+    assert p("Feature login con OAuth en minúsculas.").text == "Feature login con oauth"
+    assert p("pon commit KX minúsculas").text == "pon commit kx"
+    assert p("el Hub en minúsculas de GitHub").text == "el hub de GitHub"
+    assert p("en minúsculas").text == "en minúsculas"  # sin palabra previa: se escribe tal cual
 
 
 def test_nueva_linea_y_punto_y_aparte():

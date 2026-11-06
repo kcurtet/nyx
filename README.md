@@ -152,7 +152,7 @@ Palabras que no se escriben, sino que hacen algo. Se ignoran tildes y mayúscula
 | *"**código** git status"* | `` `git status` `` |
 | *"**ruta** tilde barra dev barra nyx punto md"* | `~/dev/nyx.md` (paths: símbolos hablados pegados; «espacio» = espacio real) |
 | *"hola mundo **entre comillas**"* | "hola mundo" |
-| *"feature login **en minúsculas**"* | feature login |
+| *"pon commit **KX minúsculas**"* | pon commit kx (minusculiza la palabra anterior) |
 | *"… **nueva línea** …"* / *"… **punto y aparte** …"* | salto de línea |
 
 Los comandos de final de frase solo actúan **al final**: *"borra eso del config"* se escribe normal. Cambia o desactiva las palabras en `[commands]`.
