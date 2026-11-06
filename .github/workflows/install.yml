@@ -40,7 +40,7 @@ jobs:
       - name: Comprobar la instalación
         run: |
           "$HOME/.local/bin/jerga" --version
-          "$HOME/.local/share/jerga/venv/bin/python" -c "import jerga.app, jerga.transcribe, jerga.tts, jerga.tray, jerga.orders, jerga.session, faster_whisper, ptts, evdev, pystray; print('imports OK')"
+          "$HOME/.local/share/jerga/venv/bin/python" -c "import importlib.util as u, jerga.app, jerga.transcribe, jerga.tts, jerga.tray, jerga.orders, jerga.session, faster_whisper, ptts, evdev; assert u.find_spec('pystray'), 'falta pystray'; print('imports OK')"
           for c in ffmpeg parec notify-send; do command -v "$c" >/dev/null && echo "✔ $c" || { echo "✘ falta $c"; exit 1; }; done
       - name: jerga doctor (informativo; sin micro ni teclado en CI)
         run: '"$HOME/.local/bin/jerga" doctor || true'

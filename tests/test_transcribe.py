@@ -183,3 +183,18 @@ def test_seleccion_por_copia(monkeypatch):
     out.keys = Keys(out.clip, copies=False)  # la app no copió → selección primaria
     assert out.selection() == "seleccion vieja"
     assert out.selection("primary") == "seleccion vieja" and out.keys.pressed == [copy_key]
+
+
+def test_consola_utf8(monkeypatch):
+    import io
+    import sys
+
+    from jerga.app import _utf8_console
+
+    raw = io.BytesIO()
+    fake = io.TextIOWrapper(raw, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", fake)
+    _utf8_console()
+    print("✔ ✘ · —")
+    fake.flush()
+    assert raw.getvalue().decode("utf-8").startswith("✔ ✘ · —")

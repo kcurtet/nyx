@@ -357,9 +357,21 @@ def keys():
                     print(name[0] if isinstance(name, list) else name)
 
 
+def _utf8_console() -> None:
+    """La consola de Windows usa cp1252 por defecto: sin esto, ✔/✘/· rompen `jerga doctor`."""
+    for stream in (sys.stdout, sys.stderr):
+        enc = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if stream is not None and enc != "utf8" and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
 def main():
     from pathlib import Path
 
+    _utf8_console()
     args = sys.argv[1:]
     cmd = args[0] if args else "run"
     if cmd in ("-h", "--help", "help"):
