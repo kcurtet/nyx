@@ -611,64 +611,6 @@ wheels = [
 ]
 
 [[package]]
-name = "jerga"
-version = "0.4.0"
-source = { editable = "." }
-dependencies = [
-    { name = "evdev", version = "1.9.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and sys_platform == 'linux'" },
-    { name = "evdev", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and sys_platform == 'linux'" },
-    { name = "faster-whisper" },
-    { name = "httpx" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
-    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "pillow", version = "12.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "pillow", version = "13.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "ptts" },
-    { name = "pynput", marker = "sys_platform == 'win32'" },
-    { name = "pyperclip", marker = "sys_platform == 'win32'" },
-    { name = "pystray" },
-    { name = "sounddevice" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
-]
-
-[package.optional-dependencies]
-cuda = [
-    { name = "nvidia-cublas-cu12", marker = "sys_platform != 'darwin'" },
-    { name = "nvidia-cudnn-cu12", marker = "sys_platform != 'darwin'" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "evdev", marker = "sys_platform == 'linux'", specifier = ">=1.6" },
-    { name = "faster-whisper", specifier = ">=1.1" },
-    { name = "httpx" },
-    { name = "numpy" },
-    { name = "nvidia-cublas-cu12", marker = "sys_platform != 'darwin' and extra == 'cuda'" },
-    { name = "nvidia-cudnn-cu12", marker = "sys_platform != 'darwin' and extra == 'cuda'", specifier = ">=9,<10" },
-    { name = "pillow" },
-    { name = "ptts", specifier = ">=0.6" },
-    { name = "pynput", marker = "sys_platform == 'win32'", specifier = ">=1.7" },
-    { name = "pyperclip", marker = "sys_platform == 'win32'", specifier = ">=1.8" },
-    { name = "pystray", specifier = ">=0.19" },
-    { name = "sounddevice", specifier = ">=0.4" },
-    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2" },
-]
-provides-extras = ["cuda"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8" },
-    { name = "ruff", specifier = ">=0.6" },
-]
-
-[[package]]
 name = "mpmath"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -933,6 +875,64 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/41/0d/ed504f33bf97ab4607da2647e6847262587d330fe288046b9cf77f5a8a7e/nvidia_cudnn_cu12-9.28.0.42-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:f88db8fc1a0a5f458e19aa7b08fbe3500aeb9e2bb8dea6293ecbce170364ad72", size = 723261984, upload-time = "2026-11-04T20:41:06.994Z" },
     { url = "https://files.pythonhosted.org/packages/ce/64/56ce3cad192cc75b50da3be44e36741ba963c84d3d2ca10aaa5ec16c49c3/nvidia_cudnn_cu12-9.28.0.42-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:9ff58b7f36dacd0a93e89f8f2957b52466889217963701daa15e577317cfa375", size = 716538495, upload-time = "2026-11-04T20:05:03.56Z" },
     { url = "https://files.pythonhosted.org/packages/f4/a9/5d6d29cce055b51c735f9c400c5fa906574c26f403c102179d5794595ff9/nvidia_cudnn_cu12-9.28.0.42-py3-none-win_amd64.whl", hash = "sha256:e8eb548c252e95713e81e6fc53c61940d13114d7116908069d018b2d24700620", size = 693320977, upload-time = "2026-11-04T20:08:45.156Z" },
+]
+
+[[package]]
+name = "nyx"
+version = "0.4.0"
+source = { editable = "." }
+dependencies = [
+    { name = "evdev", version = "1.9.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and sys_platform == 'linux'" },
+    { name = "evdev", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and sys_platform == 'linux'" },
+    { name = "faster-whisper" },
+    { name = "httpx" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pillow", version = "12.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pillow", version = "13.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "ptts" },
+    { name = "pynput", marker = "sys_platform == 'win32'" },
+    { name = "pyperclip", marker = "sys_platform == 'win32'" },
+    { name = "pystray" },
+    { name = "sounddevice" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+
+[package.optional-dependencies]
+cuda = [
+    { name = "nvidia-cublas-cu12", marker = "sys_platform != 'darwin'" },
+    { name = "nvidia-cudnn-cu12", marker = "sys_platform != 'darwin'" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "evdev", marker = "sys_platform == 'linux'", specifier = ">=1.6" },
+    { name = "faster-whisper", specifier = ">=1.1" },
+    { name = "httpx" },
+    { name = "numpy" },
+    { name = "nvidia-cublas-cu12", marker = "sys_platform != 'darwin' and extra == 'cuda'" },
+    { name = "nvidia-cudnn-cu12", marker = "sys_platform != 'darwin' and extra == 'cuda'", specifier = ">=9,<10" },
+    { name = "pillow" },
+    { name = "ptts", specifier = ">=0.6" },
+    { name = "pynput", marker = "sys_platform == 'win32'", specifier = ">=1.7" },
+    { name = "pyperclip", marker = "sys_platform == 'win32'", specifier = ">=1.8" },
+    { name = "pystray", specifier = ">=0.19" },
+    { name = "sounddevice", specifier = ">=0.4" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2" },
+]
+provides-extras = ["cuda"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.6" },
 ]
 
 [[package]]

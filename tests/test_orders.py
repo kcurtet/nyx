@@ -6,8 +6,8 @@ import time
 
 import pytest
 
-import jerga.orders as o
-from jerga.config import DEFAULTS
+import nyx.orders as o
+from nyx.config import DEFAULTS
 
 CFG = {**DEFAULTS["orders"], "isolated": True}
 

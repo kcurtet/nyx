@@ -2,7 +2,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-import jerga.launch as L
+import nyx.launch as L
 
 DESKTOP = """[Desktop Entry]
 Type=Application

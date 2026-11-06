@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import jerga.remind as R
+import nyx.remind as R
 
 AHORA = datetime(2026, 11, 9, 17, 0)  # lunes 9 de noviembre de 2026, 17:00
 

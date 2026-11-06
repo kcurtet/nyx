@@ -113,8 +113,8 @@ def open_path(path: str) -> None:
         subprocess.Popen(["xdg-open", path])
 
 
-def jerga_cmd(*args: str) -> list[str]:
-    return [sys.executable, "-m", "jerga", *args]
+def nyx_cmd(*args: str) -> list[str]:
+    return [sys.executable, "-m", "nyx", *args]
 
 
 def main() -> int:
@@ -142,7 +142,7 @@ def main() -> int:
             if not files:
                 return
             notify("Transcribiendo…", "\n".join(os.path.basename(f) for f in files))
-            r = subprocess.run(jerga_cmd("transcribe", *files), capture_output=True, text=True)
+            r = subprocess.run(nyx_cmd("transcribe", *files), capture_output=True, text=True)
             lines = [line for line in r.stderr.splitlines() if line.startswith(("✔", "✘"))]
             notify("Transcripción terminada" if r.returncode == 0 else "Transcripción con errores", "\n".join(lines)[:400])
             done = [line.split("→ ", 1)[1].split("  [")[0] for line in lines if line.startswith("✔") and "→ " in line]
@@ -153,7 +153,7 @@ def main() -> int:
 
     def trinity_start(_icon=None, _item=None):
         def work():
-            r = subprocess.run(jerga_cmd("trinity", "restart"), capture_output=True, text=True)
+            r = subprocess.run(nyx_cmd("trinity", "restart"), capture_output=True, text=True)
             notify("Trinity", (r.stdout or r.stderr).strip()[:300])
         threading.Thread(target=work, daemon=True).start()
 
@@ -210,14 +210,14 @@ def main() -> int:
 
     def record(*flags):
         def go(_icon=None, _item=None):
-            r = subprocess.run(jerga_cmd("record", *flags), capture_output=True, text=True)
+            r = subprocess.run(nyx_cmd("record", *flags), capture_output=True, text=True)
             if r.returncode != 0:
                 notify("No se pudo grabar", (r.stderr or r.stdout).strip()[:300])
         return go
 
     def record_stop(_icon=None, _item=None):
         def work():
-            r = subprocess.run(jerga_cmd("record", "stop"), capture_output=True, text=True)
+            r = subprocess.run(nyx_cmd("record", "stop"), capture_output=True, text=True)
             path = r.stdout.strip()
             if r.returncode == 0 and path:
                 open_path(path)

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "jerga"
+name = "nyx"
 version = "0.4.0"
 description = "Dictado push-to-talk local que entiende tu jerga técnica: habla español, di git push."
 readme = "README.md"
@@ -33,17 +33,17 @@ cuda = [
 ]
 
 [project.scripts]
-jerga = "jerga.app:main"
+nyx = "nyx.app:main"
 
 [project.gui-scripts]
 # En Windows arranca sin ventana de consola (para el inicio automático).
-jerga-gui = "jerga.app:main"
+nyx-gui = "nyx.app:main"
 
 [project.urls]
 Homepage = "https://github.com/kcurtet/jerga"
 
 [tool.hatch.build.targets.wheel]
-packages = ["jerga"]
+packages = ["nyx"]
 
 [tool.ruff]
 line-length = 120

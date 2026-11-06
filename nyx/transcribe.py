@@ -54,7 +54,7 @@ def is_hallucination(seg) -> bool:
 
 def transcribe_audio(stt, audio: np.ndarray, fix=None, offset: float = 0.0, speaker: str | None = None,
                      context: str = "") -> list[Segment]:
-    """Audio → segmentos. `stt` es un jerga.stt.Transcriber ya cargado."""
+    """Audio → segmentos. `stt` es un nyx.stt.Transcriber ya cargado."""
     if audio.size < SR * 0.3 or float(np.sqrt(np.mean(audio**2))) < SILENCE_RMS:
         return []  # silencio: Whisper se inventaría frases ("…protección contra mordiscos")
     out = []

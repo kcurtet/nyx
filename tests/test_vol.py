@@ -1,7 +1,7 @@
 """Tarea 1 del plan 002: jerga vol — comandos de pactl construidos y mockeados, nunca ejecutados."""
 from types import SimpleNamespace
 
-import jerga.vol as V
+import nyx.vol as V
 
 # salida real de `pactl get-sink-volume @DEFAULT_SINK@` en este equipo (PipeWire)
 PACTL_VOLUME = (

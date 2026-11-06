@@ -1,18 +1,18 @@
 import pytest
 
-import jerga.launch
-import jerga.remind
-import jerga.vol
+import nyx.launch
+import nyx.remind
+import nyx.vol
 
 # Módulos cuya main() corta por sys.platform == "win32" antes de nada.
 # sys es un singleton: parchearlo por cualquiera de ellos lo parchea para todos.
-_MODULOS_PLATAFORMA = (jerga.launch, jerga.remind, jerga.vol)
+_MODULOS_PLATAFORMA = (nyx.launch, nyx.remind, nyx.vol)
 
 
 @pytest.fixture(autouse=True)
 def _log_aislado(tmp_path, monkeypatch):
     """Los tests no escriben en el log real de jerga (~/.local/state/jerga/jerga.log)."""
-    import jerga.config as cfg
+    import nyx.config as cfg
 
     monkeypatch.setattr(cfg, "STATE_DIR", tmp_path / "state")
     monkeypatch.setattr(cfg, "LOG_PATH", tmp_path / "state" / "jerga.log")

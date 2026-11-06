@@ -1,6 +1,6 @@
-from jerga.config import DEFAULTS
-from jerga.hotkey import parse_combo
-from jerga.tts import Lexicon, normalize, prepare, sentences
+from nyx.config import DEFAULTS
+from nyx.hotkey import parse_combo
+from nyx.tts import Lexicon, normalize, prepare, sentences
 
 LEX = Lexicon(DEFAULTS["tts"]["lexicon"])
 
@@ -69,7 +69,7 @@ def test_modo_breve():
 
 
 def test_look_opciones(monkeypatch):
-    import jerga.vision as v
+    import nyx.vision as v
 
     seen = {}
     monkeypatch.setattr(v, "look", lambda q, cfg, target, keep: seen.update(q=q, target=target, keep=keep) or "ok")

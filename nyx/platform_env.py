@@ -49,7 +49,7 @@ def prepare() -> None:
     ls = layer_shell_lib()
     if ls and ls not in env.get("LD_PRELOAD", ""):
         env["LD_PRELOAD"] = ":".join([ls] + [p for p in [env.get("LD_PRELOAD")] if p])
-    os.execve(sys.executable, [sys.executable, "-m", "jerga", *sys.argv[1:]], env)
+    os.execve(sys.executable, [sys.executable, "-m", "nyx", *sys.argv[1:]], env)
 
 
 def clean_child_env() -> dict:

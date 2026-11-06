@@ -1,5 +1,5 @@
-from jerga.config import DEFAULTS
-from jerga.postprocess import PostProcessor, apply_voice_commands
+from nyx.config import DEFAULTS
+from nyx.postprocess import PostProcessor, apply_voice_commands
 
 CMD = DEFAULTS["commands"]
 
@@ -44,7 +44,7 @@ def test_integrado_con_reemplazos():
 
 
 # ---------------------------------------------------------------- comandos nuevos
-from jerga.commands import parse  # noqa: E402
+from nyx.commands import parse  # noqa: E402
 
 
 def p(text):
@@ -151,7 +151,7 @@ def test_palabra_sola_no_hace_nada():
 
 
 # ---------------------------------------------------------------- órdenes
-from jerga.orders import match_wake  # noqa: E402
+from nyx.orders import match_wake  # noqa: E402
 
 W = DEFAULTS["orders"]["wake_words"]
 
@@ -170,7 +170,7 @@ def test_no_es_orden():
 
 
 def test_pi_args_orquestadora(tmp_path, monkeypatch):
-    from jerga.orders import AGENT_DIR, pi_args_for
+    from nyx.orders import AGENT_DIR, pi_args_for
 
     agent = tmp_path / "agent"
     (agent / "extensions").mkdir(parents=True)
@@ -201,7 +201,7 @@ def test_ctrl_con_swapcaps(monkeypatch):
     import pytest
 
     pytest.importorskip("evdev")  # solo Linux
-    import jerga.hotkey as hk
+    import nyx.hotkey as hk
 
     assert hk.ctrl_key_names(["ctrl:swapcaps"]) == {"KEY_RIGHTCTRL", "KEY_CAPSLOCK"}
     assert hk.ctrl_key_names(["ctrl:nocaps"]) == {"KEY_LEFTCTRL", "KEY_RIGHTCTRL", "KEY_CAPSLOCK"}

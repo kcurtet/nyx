@@ -1,5 +1,5 @@
-from jerga.postprocess import PostProcessor
-from jerga.transcribe import Segment, paragraphs, render, stamp, to_srt
+from nyx.postprocess import PostProcessor
+from nyx.transcribe import Segment, paragraphs, render, stamp, to_srt
 
 
 def S(a, b, t, who=None):
@@ -35,7 +35,7 @@ def test_extension_pegada():
 
 
 def test_tray_estado_e_icono():
-    from jerga.tray import icon_image, state_of
+    from nyx.tray import icon_image, state_of
 
     assert state_of(None) == "down"
     assert state_of({"stt_ready": False}) == "busy"
@@ -51,7 +51,7 @@ import time as _time
 
 import numpy as np
 
-from jerga.session import SR, Chunker, NotesWatcher, quiet_cut
+from nyx.session import SR, Chunker, NotesWatcher, quiet_cut
 
 
 def test_quiet_cut_busca_el_silencio():
@@ -95,7 +95,7 @@ def test_notas_solo_nuevas_y_estables(tmp_path):
 def test_silencio_y_alucinaciones():
     from types import SimpleNamespace as NS
 
-    from jerga.transcribe import is_hallucination, transcribe_audio
+    from nyx.transcribe import is_hallucination, transcribe_audio
 
     class FakeSTT:
         def segments(self, audio):
@@ -112,7 +112,7 @@ def test_silencio_y_alucinaciones():
 def test_ficheros_largos_por_bloques():
     from types import SimpleNamespace as NS
 
-    from jerga.transcribe import blocks, transcribe_long
+    from nyx.transcribe import blocks, transcribe_long
 
     rng = np.random.default_rng(3)
     audio = rng.normal(0, 0.1, SR * 60 * 25).astype(np.float32)  # 25 min
@@ -146,7 +146,7 @@ def test_ficheros_largos_por_bloques():
 
 
 def test_seleccion_por_copia(monkeypatch):
-    import jerga.output as o
+    import nyx.output as o
 
     class Clip:
         has_primary = True
@@ -189,7 +189,7 @@ def test_consola_utf8(monkeypatch):
     import io
     import sys
 
-    from jerga.app import _utf8_console
+    from nyx.app import _utf8_console
 
     raw = io.BytesIO()
     fake = io.TextIOWrapper(raw, encoding="cp1252")

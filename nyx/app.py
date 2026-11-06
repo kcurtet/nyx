@@ -1,4 +1,8 @@
-"""jerga — dictado push-to-talk que entiende tu jerga técnica.
+"""nyx — dictado push-to-talk que entiende tu jerga técnica.
+
+     \\
+     (o>
+    //\\
 
 Uso:
   jerga                 arranca (widget + tecla global)
@@ -345,7 +349,7 @@ def run():
             return
         # Proceso aparte (GTK3 vs GTK4) y sin nuestro LD_PRELOAD; se cierra solo si el servicio cae.
         flags = {"creationflags": 0x08000000} if config.IS_WINDOWS else {}  # CREATE_NO_WINDOW
-        subprocess.Popen([sys.executable, "-m", "jerga", "tray"], env=clean_child_env(), **flags)
+        subprocess.Popen([sys.executable, "-m", "nyx", "tray"], env=clean_child_env(), **flags)
         log("[tray] icono de bandeja en marcha")
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
