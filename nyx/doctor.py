@@ -63,6 +63,9 @@ def _typelib(name: str) -> bool:
 
 def doctor() -> int:
     r = Report()
+    from .migrate import run as migrate_run
+
+    migrado = migrate_run()  # antes de cargar la config: no crear rutas nuevas vacías
     cfg = config.load()
     linux = config.IS_LINUX
     wl = bool(os.environ.get("WAYLAND_DISPLAY"))
@@ -71,6 +74,8 @@ def doctor() -> int:
           f" · {session} {os.environ.get('XDG_CURRENT_DESKTOP', '')}".rstrip())
     print(f"  config: {config.ensure_config()}")
     print(f"  log:    {config.LOG_PATH}")
+    for m in migrado:
+        print(f"  migrado: {m}")
 
     # ------------------------------------------------------------- servicio
     r.section("Servicio")

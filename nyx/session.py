@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .config import log
+from .config import docs_root, log
 from .platform_env import clean_child_env
 from .transcribe import SR, Segment, decode, render, stamp, transcribe_audio
 
@@ -131,10 +131,7 @@ class SystemSource:
 def default_dir(cfg: dict) -> Path:
     if cfg.get("dir"):
         return Path(os.path.expanduser(cfg["dir"]))
-    docs = None
-    if shutil.which("xdg-user-dir"):
-        docs = subprocess.run(["xdg-user-dir", "DOCUMENTS"], capture_output=True, text=True).stdout.strip()
-    return Path(docs or Path.home() / "Documents") / "jerga"
+    return docs_root() / "nyx"
 
 
 class Session:
@@ -279,7 +276,7 @@ class NotesWatcher(threading.Thread):
 
 
 def notes_dirs(notes_cfg: dict, record_cfg: dict) -> list[str]:
-    """Carpetas vigiladas: las configuradas o, si no hay, ~/Documentos/jerga/notas (creada)."""
+    """Carpetas vigiladas: las configuradas o, si no hay, ~/Documentos/nyx/notas (creada)."""
     if notes_cfg.get("dirs"):
         return list(notes_cfg["dirs"])
     d = default_dir(record_cfg) / "notas"

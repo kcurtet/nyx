@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -22,14 +23,14 @@ def _dir(env: str, fallback: Path) -> Path:
 
 
 if IS_WINDOWS:
-    CONFIG_DIR = _dir("APPDATA", Path.home() / "AppData" / "Roaming") / "jerga"
-    STATE_DIR = _dir("LOCALAPPDATA", Path.home() / "AppData" / "Local") / "jerga"
+    CONFIG_DIR = _dir("APPDATA", Path.home() / "AppData" / "Roaming") / "nyx"
+    STATE_DIR = _dir("LOCALAPPDATA", Path.home() / "AppData" / "Local") / "nyx"
 else:
-    CONFIG_DIR = _dir("XDG_CONFIG_HOME", Path.home() / ".config") / "jerga"
-    STATE_DIR = _dir("XDG_STATE_HOME", Path.home() / ".local" / "state") / "jerga"
+    CONFIG_DIR = _dir("XDG_CONFIG_HOME", Path.home() / ".config") / "nyx"
+    STATE_DIR = _dir("XDG_STATE_HOME", Path.home() / ".local" / "state") / "nyx"
 
 CONFIG_PATH = CONFIG_DIR / "config.toml"
-LOG_PATH = STATE_DIR / "jerga.log"
+LOG_PATH = STATE_DIR / "nyx.log"
 EXAMPLE_PATH = Path(__file__).resolve().parent / "config.example.toml"
 LEGACY_CONFIG = Path.home() / ".config" / "voice-agent" / "config.toml"
 
@@ -88,7 +89,7 @@ DEFAULTS: dict = {
     "ui": {"backend": "auto"},  # auto | gtk | tk | none
     "tray": {"enabled": True},  # icono en la bandeja del sistema
     "record": {
-        "dir": "",  # "" = ~/Documentos/jerga (carpeta de documentos de tu sistema)
+        "dir": "",  # "" = ~/Documentos/nyx (carpeta de documentos de tu sistema)
         "labels": ["Yo", "Ellos"],  # micrófono / audio del sistema cuando se graban los dos
         "mic_device": None,
     },
@@ -100,7 +101,7 @@ DEFAULTS: dict = {
     },
     "notes": {
         # Transcribe las notas de voz NUEVAS que TÚ dejes en estas carpetas (deja el .md al lado).
-        # [] = solo ~/Documentos/jerga/notas (se crea sola). No pongas Descargas: ahí cae de todo.
+        # [] = solo ~/Documentos/nyx/notas (se crea sola). No pongas Descargas: ahí cae de todo.
         "enabled": True,
         "dirs": [],
         "extensions": [".ogg", ".opus", ".oga", ".m4a"],
@@ -119,7 +120,7 @@ DEFAULTS: dict = {
         "wake_words": ["trinity"],
         "agent": "trinity",  # nombre del agente en herdr
         "model": "",  # modelo de pi para Trinity ("" = el que uses por defecto)
-        "debug": False,  # log de la extensión de voz en ~/.local/state/jerga/voice.log
+        "debug": False,  # log de la extensión de voz en ~/.local/state/nyx/voice.log
         # auto: herdr si está en marcha (paneles visibles); si no, pi en segundo plano; sin pi, no disponible.
         "backend": "auto",
         "autostart": True,  # el servicio la arranca y la vuelve a levantar si se cae
@@ -159,6 +160,14 @@ DEFAULTS: dict = {
         },
     },
 }
+
+
+def docs_root() -> Path:
+    """Carpeta de documentos del usuario (xdg-user-dir si está; si no, ~/Documents)."""
+    docs = None
+    if shutil.which("xdg-user-dir"):
+        docs = subprocess.run(["xdg-user-dir", "DOCUMENTS"], capture_output=True, text=True).stdout.strip()
+    return Path(docs or Path.home() / "Documents")
 
 
 def _merge(base: dict, over: dict) -> dict:

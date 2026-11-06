@@ -15,7 +15,7 @@ def _log_aislado(tmp_path, monkeypatch):
     import nyx.config as cfg
 
     monkeypatch.setattr(cfg, "STATE_DIR", tmp_path / "state")
-    monkeypatch.setattr(cfg, "LOG_PATH", tmp_path / "state" / "jerga.log")
+    monkeypatch.setattr(cfg, "LOG_PATH", tmp_path / "state" / "nyx.log")
     monkeypatch.setattr(cfg, "_log_file", None)
 
 

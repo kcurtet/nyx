@@ -1,5 +1,6 @@
 # jerga — configuración
-# Se crea la primera vez en ~/.config/jerga/config.toml (Windows: %APPDATA%\jerga\config.toml).
+# Se crea la primera vez en ~/.config/nyx/config.toml (Windows: %APPDATA%\nyx\config.toml).
+# Las rutas viejas de jerga se migran solas al primer arranque (backup config.toml.pre-nyx).
 # `jerga config` te dice la ruta. Reinicia jerga tras editar.
 
 [hotkey]

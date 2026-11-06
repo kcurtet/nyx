@@ -411,6 +411,10 @@ def main():
     if cmd in ("-V", "--version", "version"):
         print(__version__)
         return
+    from . import migrate
+
+    for msg in migrate.run():  # rutas viejas de jerga → nyx, antes de tocar la config
+        log("[migración]", msg)
     if cmd == "look":
         from .vision import main as look_main
 
