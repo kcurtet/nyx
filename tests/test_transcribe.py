@@ -78,13 +78,16 @@ def test_notas_solo_nuevas_y_estables(tmp_path):
     old.write_bytes(b"x")
     import os
     os.utime(old, (_time.time() - 3600, _time.time() - 3600))
+    nueva_antes = tmp_path / "justo-al-arrancar.ogg"  # mtime unos ms "antes" de arrancar (Windows)
+    nueva_antes.write_bytes(b"a")
+    os.utime(nueva_antes, (_time.time() - 0.5, _time.time() - 0.5))
     done = []
     w = NotesWatcher([str(tmp_path)], [".ogg"], lambda p: done.append(p.name) or p.with_suffix(".md"))
     nueva = tmp_path / "nueva.ogg"
     nueva.write_bytes(b"audio")
     assert w.step() == [] and done == []          # 1ª pasada: se apunta el tamaño
-    assert len(w.step()) == 1 and done == ["nueva.ogg"]  # 2ª: estable → se transcribe
-    assert w.step() == [] and done == ["nueva.ogg"]      # nunca dos veces; la vieja nunca
+    assert len(w.step()) == 2 and sorted(done) == ["justo-al-arrancar.ogg", "nueva.ogg"]  # 2ª: estables
+    assert w.step() == [] and len(done) == 2      # nunca dos veces; la vieja nunca
     (tmp_path / "otra.mp4").write_bytes(b"v")
     assert w.step() == []                                # extensión no vigilada
 
@@ -172,9 +175,11 @@ def test_seleccion_por_copia(monkeypatch):
     out.clip = Clip()
     out.keys = Keys(out.clip, copies=True)
     assert out.selection() == "texto seleccionado ahora"
-    assert out.keys.pressed == ["ctrl+insert"]  # nunca Ctrl+C en Linux (mataría procesos en terminales)
+    # Linux: nunca Ctrl+C (mataría procesos en terminales). Windows: Ctrl+C (Windows Terminal copia si hay selección)
+    copy_key = "ctrl+c" if o.IS_WINDOWS else "ctrl+insert"
+    assert out.keys.pressed == [copy_key]
 
     out.clip = Clip()
     out.keys = Keys(out.clip, copies=False)  # la app no copió → selección primaria
     assert out.selection() == "seleccion vieja"
-    assert out.selection("primary") == "seleccion vieja" and out.keys.pressed == ["ctrl+insert"]
+    assert out.selection("primary") == "seleccion vieja" and out.keys.pressed == [copy_key]

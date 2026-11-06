@@ -228,7 +228,9 @@ class NotesWatcher(threading.Thread):
         self.notify = notify
         self.seen: dict[Path, tuple[int, float]] = {}
         self.done: set[Path] = set()
-        self.since = time.time()  # solo ficheros nuevos: los que ya estaban no se tocan
+        # Solo ficheros nuevos: los que ya estaban no se tocan. Margen de 2 s porque el reloj de
+        # los ficheros puede ir unos ms por detrás de time.time() (pasa en Windows/NTFS).
+        self.since = time.time() - 2.0
         self._stop = threading.Event()
 
     def stop(self):
