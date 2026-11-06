@@ -107,7 +107,7 @@ DEFAULTS: dict = {
         "extensions": [".ogg", ".opus", ".oga", ".m4a"],
     },
     "vision": {
-        # jerga look: captura de pantalla → modelo de visión local (Ollama)
+        # nyx look: captura de pantalla → modelo de visión local (Ollama)
         "model": "lfm3-omni:latest",
         "url": "http://localhost:11434",
         "max_side": 1600,
@@ -199,7 +199,7 @@ _log_file = None
 
 
 def log(*parts) -> None:
-    """Imprime y guarda en el log (útil en Windows, donde jerga-gui no tiene consola)."""
+    """Imprime y guarda en el log (útil en Windows, donde nyx-gui no tiene consola)."""
     global _log_file
     msg = " ".join(str(p) for p in parts)
     line = f"{time.strftime('%H:%M:%S')} {msg}"

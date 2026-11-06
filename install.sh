@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# jerga — instalador para Linux (Arch, Debian/Ubuntu, Fedora, openSUSE y derivadas).
+# nyx — instalador para Linux (Arch, Debian/Ubuntu, Fedora, openSUSE y derivadas).
 #
-#   curl -fsSL https://raw.githubusercontent.com/kcurtet/jerga/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/kcurtet/nyx/main/install.sh | bash
 #   ./install.sh [--local] [--cpu] [--no-system] [--no-service] [--uninstall]
 #
 #   --local       instala desde este directorio (desarrollo) en vez de GitHub
@@ -11,10 +11,12 @@
 #   --uninstall   desinstalar
 set -euo pipefail
 
-REPO="https://github.com/kcurtet/jerga"
-PREFIX="${JERGA_HOME:-$HOME/.local/share/jerga}"
+REPO="https://github.com/kcurtet/nyx"
+# NYX_HOME mueve la instalación; JERGA_HOME (override histórico) se respeta como fallback.
+PREFIX="${NYX_HOME:-${JERGA_HOME:-$HOME/.local/share/nyx}}"
 BIN="$HOME/.local/bin"
-UNIT="$HOME/.config/systemd/user/jerga.service"
+UNIT="$HOME/.config/systemd/user/nyx.service"
+VIEJA_UNIT="$HOME/.config/systemd/user/jerga.service"
 LOCAL=0 CPU=0 SYSTEM=1 SERVICE=1 UNINSTALL=0
 for a in "$@"; do
   case "$a" in
@@ -34,12 +36,13 @@ USER="${USER:-$(id -un)}"
 
 # ------------------------------------------------------------- desinstalar
 if [ "$UNINSTALL" = 1 ]; then
-  step "Desinstalando jerga"
+  step "Desinstalando nyx"
+  systemctl --user disable --now nyx.service 2>/dev/null || true
   systemctl --user disable --now jerga.service 2>/dev/null || true
-  rm -f "$UNIT" "$BIN/jerga"
+  rm -f "$UNIT" "$BIN/nyx" "$BIN/jerga"
   rm -rf "$PREFIX"
-  echo "Hecho. Se conservan tu config (~/.config/jerga), los modelos (~/.cache/huggingface)"
-  echo "y la regla udev (/etc/udev/rules.d/80-jerga-uinput.rules; bórrala a mano si quieres)."
+  echo "Hecho. Se conservan tu config (~/.config/nyx), los modelos (~/.cache/huggingface)"
+  echo "y la regla udev (/etc/udev/rules.d/80-nyx-uinput.rules; bórrala a mano si quieres)."
   exit 0
 fi
 
@@ -94,10 +97,11 @@ if [ "$SYSTEM" = 1 ]; then
   step "Permisos de teclado (tecla global + pegar en el cursor)"
   # /dev/uinput: teclado virtual para pulsar Shift+Insert, sin daemons extra.
   RULE='KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"'
-  if [ ! -f /etc/udev/rules.d/80-jerga-uinput.rules ]; then
+  if [ ! -f /etc/udev/rules.d/80-nyx-uinput.rules ]; then
     $SUDO mkdir -p /etc/udev/rules.d /etc/modules-load.d
-    echo "$RULE" | $SUDO tee /etc/udev/rules.d/80-jerga-uinput.rules >/dev/null
-    echo uinput | $SUDO tee /etc/modules-load.d/jerga-uinput.conf >/dev/null
+    echo "$RULE" | $SUDO tee /etc/udev/rules.d/80-nyx-uinput.rules >/dev/null
+    echo uinput | $SUDO tee /etc/modules-load.d/nyx-uinput.conf >/dev/null
+    $SUDO rm -f /etc/udev/rules.d/80-jerga-uinput.rules /etc/modules-load.d/jerga-uinput.conf
     $SUDO modprobe uinput 2>/dev/null || true
     $SUDO udevadm control --reload-rules 2>/dev/null && $SUDO udevadm trigger --name-match=uinput 2>/dev/null || true
   fi
@@ -135,32 +139,39 @@ else
 fi
 if [ "$LOCAL" = 1 ]; then
   SRC="$(cd "$(dirname "$0")" && pwd)"
-  SPEC="jerga${EXTRA} @ file://$SRC"
+  SPEC="nyx${EXTRA} @ file://$SRC"
 else
-  SPEC="jerga${EXTRA} @ git+$REPO"
+  SPEC="nyx${EXTRA} @ git+$REPO"
 fi
-step "Instalando jerga ($SPEC)"
-# Reinstala siempre jerga (para coger cambios) pero no sus dependencias.
+step "Instalando nyx ($SPEC)"
+# Reinstala siempre nyx (para coger cambios) pero no sus dependencias.
 if [ "${PIP[0]}" = uv ]; then
-  "${PIP[@]}" --reinstall-package jerga "$SPEC" || die "falló la instalación de paquetes Python"
+  "${PIP[@]}" --reinstall-package nyx "$SPEC" || die "falló la instalación de paquetes Python"
 else
   "${PIP[@]}" "$SPEC" || die "falló la instalación de paquetes Python"
-  "${PIP[@]}" --force-reinstall --no-deps "$SPEC" || die "falló reinstalando jerga"
+  "${PIP[@]}" --force-reinstall --no-deps "$SPEC" || die "falló reinstalando nyx"
 fi
-ln -sf "$PREFIX/venv/bin/jerga" "$BIN/jerga"
+ln -sf "$PREFIX/venv/bin/nyx" "$BIN/nyx"
+ln -sfn nyx "$BIN/jerga"  # alias de transición: mismo binario; nyx avisa del cambio UNA vez
 
 # ------------------------------------------------------------- servicio
 if [ "$SERVICE" = 1 ] && command -v systemctl >/dev/null && systemctl --user show-environment >/dev/null 2>&1; then
   step "Arranque automático (systemd --user)"
+  if [ -f "$VIEJA_UNIT" ] || systemctl --user cat jerga.service >/dev/null 2>&1; then
+    step "Retirando jerga.service (el nombre anterior)"
+    systemctl --user disable --now jerga.service 2>/dev/null || true
+    warn "jerga.service parado y desactivado (no se borra). Para purgarlo del todo:"
+    warn "  rm ~/.config/systemd/user/jerga.service && systemctl --user daemon-reload"
+  fi
   mkdir -p "$(dirname "$UNIT")"
   cat > "$UNIT" <<EOF
 [Unit]
-Description=jerga — dictado push-to-talk
+Description=nyx — dictado push-to-talk
 After=graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
-ExecStart=$PREFIX/venv/bin/jerga
+ExecStart=$PREFIX/venv/bin/nyx
 Restart=on-failure
 RestartSec=3
 
@@ -168,24 +179,25 @@ RestartSec=3
 WantedBy=graphical-session.target
 EOF
   systemctl --user daemon-reload
-  systemctl --user enable jerga.service >/dev/null 2>&1 || warn "no se pudo habilitar el servicio"
+  systemctl --user enable nyx.service >/dev/null 2>&1 || warn "no se pudo habilitar el servicio"
   if [ -z "${NEED_RELOGIN:-}" ]; then
-    systemctl --user restart jerga.service || warn "no arrancó; mira: journalctl --user -u jerga"
+    systemctl --user restart nyx.service || warn "no arrancó; mira: journalctl --user -u nyx"
   fi
 fi
 
 # ------------------------------------------------------------------ fin
-step "Comprobando el equipo (jerga doctor)"
-"$PREFIX/venv/bin/jerga" doctor || true
+step "Comprobando el equipo (nyx doctor)"
+"$PREFIX/venv/bin/nyx" doctor || true
 echo
-echo "${c_g}${c_b}jerga instalado.${c_0}"
+echo "${c_g}${c_b}nyx instalado.${c_0}"
 case ":$PATH:" in *":$BIN:"*) ;; *) warn "añade $BIN a tu PATH";; esac
-echo "  Comprueba el equipo:  jerga doctor"
-echo "  Configuración:        $("$PREFIX/venv/bin/jerga" config 2>/dev/null || echo "$HOME/.config/jerga/config.toml")"
+echo "  Comprueba el equipo:  nyx doctor"
+echo "  Configuración:        $("$PREFIX/venv/bin/nyx" config 2>/dev/null || echo "$HOME/.config/nyx/config.toml")"
 echo "  Uso: mantén Ctrl derecho, habla y suelta. La 1ª vez descarga el modelo (~1.6 GB)."
 echo "  Leer en voz alta: selecciona texto y pulsa Ctrl+0 (o di «léeme esto»)."
 command -v ollama >/dev/null && ! ollama list 2>/dev/null | grep -q lfm3-omni && \
-  echo "  Opcional, para jerga look (ver la pantalla): ollama pull lfm3-omni"
-command -v herdr >/dev/null && echo "  Orquestadora por voz: jerga trinity  (y luego «Trinity, …»)"
+  echo "  Opcional, para nyx look (ver la pantalla): ollama pull lfm3-omni"
+command -v herdr >/dev/null && echo "  Orquestadora por voz: nyx agent  (y luego «Trinity, …»)"
+echo "  El alias jerga sigue funcionando (nyx te lo recuerda una vez); se retirará en una versión futura."
 [ -n "${NEED_RELOGIN:-}" ] && echo "  ${c_y}Cierra sesión y vuelve a entrar antes de usarlo (grupo input).${c_0}"
 true

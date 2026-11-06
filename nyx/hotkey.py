@@ -2,7 +2,7 @@
 
 Linux: evdev (funciona en Wayland y X11; requiere grupo `input`).
 Windows: pynput.
-Control: socket unix (Linux) o TCP local (Windows) → `jerga toggle`.
+Control: socket unix (Linux) o TCP local (Windows) → `nyx toggle`.
 """
 from __future__ import annotations
 
@@ -15,9 +15,10 @@ import time
 from pathlib import Path
 
 from .config import IS_WINDOWS, log
+from .output import teclado_simulado
 
 CONTROL_PORT = 47321
-SOCKET_PATH = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "jerga.sock"
+SOCKET_PATH = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "nyx.sock"
 
 
 class PushToTalk:
@@ -60,7 +61,7 @@ MODIFIERS = {
 
 
 def xkb_options() -> list[str]:
-    """Opciones xkb del escritorio (p.ej. ctrl:swapcaps). jerga lee el teclado ANTES de que el
+    """Opciones xkb del escritorio (p.ej. ctrl:swapcaps). nyx lee el teclado ANTES de que el
     escritorio aplique estos remapeos, así que necesita saberlos para entender los atajos."""
     import subprocess
 
@@ -110,7 +111,7 @@ def parse_combo(spec: str) -> tuple[list[str], str]:
     return mods, key
 
 
-_KEY_DEBUG = bool(os.environ.get("JERGA_KEY_DEBUG"))
+_KEY_DEBUG = bool(os.environ.get("NYX_KEY_DEBUG"))
 _CTRL = {29, 97}  # KEY_LEFTCTRL, KEY_RIGHTCTRL
 # Modificadores (para depurar atajos sin registrar lo que se escribe):
 # ctrl, shift, alt, super, bloq mayús, menú
@@ -153,7 +154,7 @@ class EvdevListener(threading.Thread):
                 continue
             self.known.add(path)
             name = d.name.lower()
-            if "ydotool" in name or "jerga" in name:  # ignorar teclas simuladas
+            if teclado_simulado(name):  # ignorar teclas simuladas (las nuestras, ydotool)
                 continue
             caps = set(d.capabilities().get(self.e.EV_KEY, []))
             # también los modificadores de los atajos: hay teclados que mandan Ctrl izquierdo
@@ -169,7 +170,7 @@ class EvdevListener(threading.Thread):
         added = self._scan(sel)
         if not added:
             log(f"[hotkey] no puedo leer teclados con {self.e.KEY[self.code]} — "
-                "¿estás en el grupo `input`? (usa `jerga doctor`). Queda el control por atajo: `jerga toggle`.")
+                "¿estás en el grupo `input`? (usa `nyx doctor`). Queda el control por atajo: `nyx toggle`.")
         else:
             log("[hotkey] escuchando en:", ", ".join(sorted(set(added))))
         last_scan = time.monotonic()
@@ -289,7 +290,7 @@ def _server_socket() -> socket.socket:
 
 MAX_PAYLOAD = 1 << 20  # 1 MB
 # Comandos que se ejecutan ANTES de responder y devuelven su resultado (pueden tardar minutos).
-SYNC_COMMANDS = {"transcribe", "status", "record-start", "record-stop", "trinity-start", "trinity-restart"}
+SYNC_COMMANDS = {"transcribe", "status", "record-start", "record-stop", "agent-start", "agent-restart"}
 WITH_PAYLOAD = {"say", "say-brief", "order", "transcribe", "record-start"}
 
 

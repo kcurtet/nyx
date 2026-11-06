@@ -3,7 +3,7 @@
 Dos formas de tenerla en marcha (backend):
   herdr: en su propio workspace de herdr — ves lo que hace y puede vigilar a tus agentes
          (pi-herdr en modo global).
-  pi:    sin herdr — pi en segundo plano (`pi --mode rpc`) gestionado por el servicio de jerga.
+  pi:    sin herdr — pi en segundo plano (`pi --mode rpc`) gestionado por el servicio de nyx.
          Mismas capacidades salvo los paneles y los agentes de herdr.
 auto (por defecto): herdr si está instalado y en marcha; si no, pi; sin pi → no disponible.
 
@@ -198,7 +198,7 @@ class HerdrBackend:
             log(f"[orden] cierro el workspace huérfano {ws}")
             _herdr("workspace", "close", ws)
         # PI_HERDR_SCOPE=global: pi-herdr ve y vigila TODOS los agentes de herdr (spec 004 de pi-herdr)
-        extra = ["--env", "PI_HERDR_SCOPE=global"] + (["--env", "JERGA_VOICE_DEBUG=1"] if self.cfg.get("debug") else [])
+        extra = ["--env", "PI_HERDR_SCOPE=global"] + (["--env", "NYX_VOICE_DEBUG=1"] if self.cfg.get("debug") else [])
         where = "workspace" if self.cfg.get("topology", "workspace") == "workspace" else "tab"
         code, data, out = _herdr(where, "create", "--label", self.agent, "--cwd", str(Path.home()),
                                  "--no-focus", *extra)
@@ -214,7 +214,7 @@ class HerdrBackend:
         return True, f"{self.title} en marcha en su {where} '{self.agent}'. Dile: «{self.title}, …»"
 
     def stop(self) -> None:
-        pass  # su workspace sigue siendo tuyo: no lo cerramos al parar jerga
+        pass  # su workspace sigue siendo tuyo: no lo cerramos al parar nyx
 
 
 # --------------------------------------------------------------- pi (RPC)
@@ -245,7 +245,7 @@ class PiRpcBackend:
             self.sessions.mkdir(parents=True, exist_ok=True)
             env = clean_child_env()
             if self.cfg.get("debug"):
-                env["JERGA_VOICE_DEBUG"] = "1"
+                env["NYX_VOICE_DEBUG"] = "1"
             args = ["pi", "--mode", "rpc", "--session-dir", str(self.sessions), "--continue",
                     *pi_args_for(self.cfg, with_herdr=False)]
             errlog = open(STATE_DIR / f"{self.agent}-pi.log", "ab")
@@ -368,11 +368,11 @@ class Orchestrator:
 
 
 def launch(cfg: dict) -> int:
-    """`jerga trinity` sin servicio: solo el backend herdr tiene sentido fuera del servicio."""
+    """`nyx agent` sin servicio: solo el backend herdr tiene sentido fuera del servicio."""
     orch = Orchestrator(cfg)
     if orch.kind == "pi":
-        print(f"Sin herdr, {orch.title} corre en segundo plano dentro del servicio de jerga "
-              f"(systemctl --user start jerga).")
+        print(f"Sin herdr, {orch.title} corre en segundo plano dentro del servicio de nyx "
+              f"(systemctl --user start nyx).")
         return 1
     ok, msg = orch.launch()
     print(msg)

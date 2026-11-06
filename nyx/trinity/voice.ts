@@ -1,13 +1,13 @@
 /**
- * jerga · voz de Trinity (extensión de pi).
+ * nyx · voz de Trinity (extensión de pi).
  *
- * - Al empezar un turno (llega una orden nueva): `jerga hush`, calla lo que se estuviera leyendo.
- * - Al terminar: lee la respuesta final con `jerga say --brief`. jerga limpia el Markdown
+ * - Al empezar un turno (llega una orden nueva): `nyx hush`, calla lo que se estuviera leyendo.
+ * - Al terminar: lee la respuesta final con `nyx say --brief`. nyx limpia el Markdown
  *   (tablas, código…) y DESPUÉS recorta por frases: "el resto lo tienes en el panel".
  * - Si el modelo falla (cuota, auth, red): lo dice en una frase clara.
  *
- * Se carga solo en la sesión de Trinity (`jerga trinity` la arranca con -e).
- * Depuración: JERGA_VOICE_DEBUG=1 escribe los eventos en ~/.local/state/jerga/voice.log
+ * Se carga solo en la sesión de Trinity (`nyx agent` la arranca con -e).
+ * Depuración: NYX_VOICE_DEBUG=1 escribe los eventos en ~/.local/state/nyx/voice.log
  */
 import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync } from "node:fs";
@@ -17,9 +17,9 @@ import path from "node:path";
 type Msg = { role?: string; content?: unknown; stopReason?: string; errorMessage?: string };
 
 function debug(what: string): void {
-	if (!process.env.JERGA_VOICE_DEBUG) return;
+	if (!process.env.NYX_VOICE_DEBUG) return;
 	try {
-		const dir = path.join(os.homedir(), ".local", "state", "jerga");
+		const dir = path.join(os.homedir(), ".local", "state", "nyx");
 		mkdirSync(dir, { recursive: true });
 		appendFileSync(path.join(dir, "voice.log"), `${new Date().toISOString()} ${what}\n`);
 	} catch {
@@ -27,16 +27,19 @@ function debug(what: string): void {
 	}
 }
 
-function jergaBin(): string {
-	const env = process.env.JERGA_BIN;
+function nyxBin(): string {
+	const env = process.env.NYX_BIN;
 	if (env) return env;
-	const local = path.join(os.homedir(), ".local", "bin", "jerga");
-	return existsSync(local) ? local : "jerga";
+	const bin = path.join(os.homedir(), ".local", "bin");
+	const nyx = path.join(bin, "nyx");
+	if (existsSync(nyx)) return nyx;
+	const jerga = path.join(bin, "jerga"); // alias de transición: aún sirve si nyx no está
+	return existsSync(jerga) ? jerga : "nyx";
 }
 
 function run(args: string[], stdin?: string): void {
 	try {
-		const child = spawn(jergaBin(), args, { stdio: [stdin === undefined ? "ignore" : "pipe", "ignore", "ignore"] });
+		const child = spawn(nyxBin(), args, { stdio: [stdin === undefined ? "ignore" : "pipe", "ignore", "ignore"] });
 		child.on("error", (e) => debug(`spawn error: ${e}`));
 		if (stdin !== undefined) child.stdin?.end(stdin);
 	} catch (e) {

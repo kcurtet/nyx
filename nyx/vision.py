@@ -1,6 +1,6 @@
-"""`jerga look "pregunta"`: captura la pantalla y la entiende un modelo de visión local (lfm3-omni).
+"""`nyx look "pregunta"`: captura la pantalla y la entiende un modelo de visión local (lfm3-omni).
 
-Pensado para Trinity: "Trinity, mira mi pantalla, ¿qué error sale?" → `jerga look "¿qué error sale?"`.
+Pensado para Trinity: "Trinity, mira mi pantalla, ¿qué error sale?" → `nyx look "¿qué error sale?"`.
 Todo en local vía Ollama: la captura nunca sale del equipo.
 
 Capturas: spectacle (KDE) · grim (wlroots) · gnome-screenshot · maim/scrot (X11) · PIL (Windows).
@@ -31,7 +31,7 @@ PROMPT = (
 
 
 def capture(target: str = "monitor") -> Path:
-    out = Path(tempfile.mkstemp(prefix="jerga-look-", suffix=".png")[1])
+    out = Path(tempfile.mkstemp(prefix="nyx-look-", suffix=".png")[1])
     env = clean_child_env()
     if sys.platform == "win32":
         from PIL import ImageGrab  # pillow: solo en Windows
@@ -127,9 +127,9 @@ def main(args: list[str], cfg: dict) -> int:
         t0 = time.monotonic()
         answer = look(question, cfg, target, keep)
     except Exception as e:  # noqa: BLE001
-        print(f"jerga look: {e}", file=sys.stderr)
+        print(f"nyx look: {e}", file=sys.stderr)
         return 1
     print(answer)
-    if os.environ.get("JERGA_DEBUG"):
+    if os.environ.get("NYX_DEBUG"):
         print(f"({time.monotonic() - t0:.1f}s)", file=sys.stderr)
     return 0

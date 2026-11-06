@@ -13,7 +13,7 @@ from .hotkey import is_running
 
 EXIT_OK, EXIT_ERROR = 0, 5
 
-_USO = 'uso: jerga remind "texto" en <cuándo> · jerga remind --list · jerga remind --cancel N'
+_USO = 'uso: nyx remind "texto" en <cuándo> · nyx remind --list · nyx remind --cancel N'
 _PREFIJO = "jerga remind: "  # la Description de la unidad lleva el texto: --list lo recupera de ahí
 _REL = re.compile(r"^(\d+)\s*(s|seg(?:undos?)?|m|min(?:utos?)?|h|horas?)$")
 _HHMM = re.compile(r"^(\d{1,2}):(\d{2})$")
@@ -210,7 +210,7 @@ def _crear(texto: str, cuando: str) -> int:
     if (c.dispara_en - ahora).total_seconds() > 3600:  # unidades transitorias: no sobreviven a un apagón
         print("ojo: si apagas el equipo, se pierde")
     if not is_running():  # el timer dispara igual, pero sin servicio no hay voz
-        print("Trinity no sonará: jerga está parado")
+        print("Trinity no sonará: nyx está parado")
     return EXIT_OK
 
 

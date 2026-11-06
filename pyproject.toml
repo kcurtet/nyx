@@ -40,7 +40,7 @@ nyx = "nyx.app:main"
 nyx-gui = "nyx.app:main"
 
 [project.urls]
-Homepage = "https://github.com/kcurtet/jerga"
+Homepage = "https://github.com/kcurtet/nyx"
 
 [tool.hatch.build.targets.wheel]
 packages = ["nyx"]

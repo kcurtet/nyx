@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 
-_FLAG = "JERGA_ENV_READY"
+_FLAG = "NYX_ENV_READY"
 
 
 def nvidia_dirs(sub: str) -> list[str]:
@@ -53,8 +53,9 @@ def prepare() -> None:
 
 
 def clean_child_env() -> dict:
-    """Entorno para subprocesos (wl-copy, xclip…) sin nuestro LD_PRELOAD."""
+    """Entorno para subprocesos (wl-copy, xclip…) sin nuestro LD_PRELOAD ni el aviso del alias."""
     env = dict(os.environ)
     env.pop("LD_PRELOAD", None)
     env.pop(_FLAG, None)
+    env.pop("NYX_ALIAS", None)
     return env

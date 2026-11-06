@@ -15,7 +15,18 @@ import time
 from .config import IS_WINDOWS, log
 from .platform_env import clean_child_env
 
-UINPUT_NAME = "jerga-virtual-keyboard"
+UINPUT_NAME = "nyx-virtual-keyboard"
+# Par ATÓMICO con el autofiltro de hotkey/app.keys: el tag es lo que los oyentes excluyen
+# para no escuchar las teclas que nosotros mismos pulsamos. Si cambias el nombre, cambia solo
+# UINPUT_NAME: el tag y los filtros lo derivan.
+UINPUT_TAG = UINPUT_NAME.split("-", 1)[0]  # "nyx"
+
+
+def teclado_simulado(name: str) -> bool:
+    """True si el dispositivo genera teclas por software (nosotros con uinput, o ydotool):
+    escucharlo sería escuchar nuestras propias pulsaciones."""
+    n = name.lower()
+    return UINPUT_TAG in n or "ydotool" in n
 
 
 def _parse_combo(combo: str) -> list[str]:
@@ -241,7 +252,7 @@ class Output:
             text += " "
         return text
 
-    SENTINEL = b"\x00jerga-seleccion\x00"
+    SENTINEL = b"\x00nyx-seleccion\x00"
 
     def selection(self, mode: str = "copy") -> str:
         """Texto seleccionado.

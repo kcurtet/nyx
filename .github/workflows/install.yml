@@ -1,12 +1,12 @@
 name: Instalación
 
-# Comprueba que install.sh / install.ps1 instalan jerga de cero en cada sistema.
+# Comprueba que install.sh / install.ps1 instalan nyx de cero en cada sistema.
 on:
   push:
     branches: [main]
-    paths: [install.sh, install.ps1, pyproject.toml, "jerga/**", .github/workflows/install.yml]
+    paths: [install.sh, install.ps1, pyproject.toml, "nyx/**", .github/workflows/install.yml]
   pull_request:
-    paths: [install.sh, install.ps1, pyproject.toml, "jerga/**", .github/workflows/install.yml]
+    paths: [install.sh, install.ps1, pyproject.toml, "nyx/**", .github/workflows/install.yml]
   schedule:
     - cron: "0 6 * * 1"  # los lunes: detectar paquetes que cambian de nombre en las distros
   workflow_dispatch:
@@ -39,11 +39,15 @@ jobs:
         run: ./install.sh --local --no-service
       - name: Comprobar la instalación
         run: |
-          "$HOME/.local/bin/jerga" --version
-          "$HOME/.local/share/jerga/venv/bin/python" -c "import importlib.util as u, jerga.app, jerga.transcribe, jerga.tts, jerga.tray, jerga.orders, jerga.session, faster_whisper, ptts, evdev; assert u.find_spec('pystray'), 'falta pystray'; print('imports OK')"
+          "$HOME/.local/bin/nyx" --version
+          "$HOME/.local/share/nyx/venv/bin/python" -c "import importlib.util as u, nyx.app, nyx.transcribe, nyx.tts, nyx.tray, nyx.orders, nyx.session, faster_whisper, ptts, evdev; assert u.find_spec('pystray'), 'falta pystray'; print('imports OK')"
           for c in ffmpeg parec notify-send; do command -v "$c" >/dev/null && echo "✔ $c" || { echo "✘ falta $c"; exit 1; }; done
-      - name: jerga doctor (informativo; sin micro ni teclado en CI)
-        run: '"$HOME/.local/bin/jerga" doctor || true'
+      - name: Alias jerga (transición)
+        run: |
+          test -L "$HOME/.local/bin/jerga" && test "$(readlink "$HOME/.local/bin/jerga")" = nyx
+          "$HOME/.local/bin/jerga" --version  # avisa "jerga ahora es nyx" UNA vez por stderr y funciona igual
+      - name: nyx doctor (informativo; sin micro ni teclado en CI)
+        run: '"$HOME/.local/bin/nyx" doctor || true'
 
   windows:
     name: Windows
@@ -57,7 +61,10 @@ jobs:
         shell: pwsh
         run: |
           $bin = (uv tool dir --bin).Trim()
-          & "$bin\jerga.exe" --version
+          & "$bin\nyx.exe" --version
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          & "$bin\jerga.exe" doctor
+          if (-not (Test-Path "$bin\jerga.cmd")) { Write-Host "✘ falta el alias jerga.cmd"; exit 1 }
+          & "$bin\jerga.cmd" --version  # avisa "jerga ahora es nyx" UNA vez por stderr y funciona igual
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          & "$bin\nyx.exe" doctor
           exit 0

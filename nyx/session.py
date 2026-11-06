@@ -1,4 +1,4 @@
-"""Sesiones largas en vivo (`jerga record`) y vigilante de notas de voz.
+"""Sesiones largas en vivo (`nyx record`) y vigilante de notas de voz.
 
 Sesión: micrófono y/o audio del sistema → trozos de ~25 s cortados en un silencio →
 Whisper (el del servicio) → .md que se reescribe tras cada trozo (se puede abrir mientras

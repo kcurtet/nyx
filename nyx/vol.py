@@ -8,7 +8,7 @@ import sys
 
 EXIT_OK, EXIT_ERROR = 0, 5
 
-_USO = "uso: jerga vol [up|down|mute|N]   (N = 0-100)"
+_USO = "uso: nyx vol [up|down|mute|N]   (N = 0-100)"
 _SINK = "@DEFAULT_SINK@"
 _PCT = re.compile(r"(\d+)%")
 _MUTE = re.compile(r"Mute:\s*(yes|no)", re.I)

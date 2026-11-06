@@ -3,8 +3,8 @@
 Núcleo común: ffmpeg (cualquier formato) → Whisper con tu vocabulario técnico →
 tus reemplazos → segmentos con marcas de tiempo → .md / .srt / .txt.
 
-  jerga transcribe reunion.mp4                 → reunion.md al lado
-  jerga transcribe *.ogg --format srt --out ~/notas
+  nyx transcribe reunion.mp4                 → reunion.md al lado
+  nyx transcribe *.ogg --format srt --out ~/notas
 """
 from __future__ import annotations
 
@@ -151,7 +151,7 @@ def to_md(segs: list[Segment], title: str, source: str = "", duration: float | N
         meta.append(f"Fuente: `{source}`")
     if duration:
         meta.append(f"Duración: {stamp(duration)}")
-    meta.append(f"Transcrito: {time.strftime('%Y-%m-%d %H:%M')} con jerga")
+    meta.append(f"Transcrito: {time.strftime('%Y-%m-%d %H:%M')} con nyx")
     head += [" · ".join(meta), ""]
     body = []
     for p in paragraphs(segs):
@@ -250,7 +250,7 @@ def main(args: list[str], cfg: dict) -> int:
         else:
             files.append(Path(a).expanduser().resolve())
     if fmt not in ("md", "srt", "txt") or not files:
-        print("uso: jerga transcribe FICHERO... [--format md|srt|txt] [--out DIR] [--stdout]", file=sys.stderr)
+        print("uso: nyx transcribe FICHERO... [--format md|srt|txt] [--out DIR] [--stdout]", file=sys.stderr)
         return 2
     missing = [f for f in files if not f.is_file()]
     if missing:
@@ -263,7 +263,7 @@ def main(args: list[str], cfg: dict) -> int:
 
     if is_running():
         # El servicio ya tiene Whisper cargado en la GPU: no cargamos un segundo modelo.
-        print("transcribiendo con el servicio de jerga…", file=sys.stderr)
+        print("transcribiendo con el servicio de nyx…", file=sys.stderr)
         reply = send_command("transcribe", json.dumps(req), timeout=None)
         try:
             res = json.loads(reply)

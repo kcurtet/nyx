@@ -14,7 +14,7 @@ from .commands import _fold
 
 EXIT_OK, EXIT_AMBIGUOUS, EXIT_NOT_FOUND, EXIT_ERROR = 0, 3, 4, 5
 
-_USO = 'uso: jerga launch "nombre" [--pick N] · jerga launch --list [filtro]'
+_USO = 'uso: nyx launch "nombre" [--pick N] · nyx launch --list [filtro]'
 _RAIZ_STEAM = Path("~/.steam/steam").expanduser()
 _STEAM_ARTEFACTOS = re.compile(r"proton|steam linux runtime|redistributable|voice files", re.I)
 _SESSION_KEYS = ("DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "XAUTHORITY")
@@ -197,7 +197,7 @@ def match(query: str, cands: list[Candidate]) -> list[Candidate]:
 
 
 def launch_env(env: dict[str, str] | None = None) -> dict[str, str]:
-    """Copia env (u os.environ) sin los LD de CUDA de jerga; claves de sesión ausentes, del session manager."""
+    """Copia env (u os.environ) sin los LD de CUDA de nyx; claves de sesión ausentes, del session manager."""
     out = dict(os.environ if env is None else env)
     out.pop("LD_PRELOAD", None)
     out.pop("LD_LIBRARY_PATH", None)

@@ -1,4 +1,4 @@
-"""Icono en la bandeja del sistema (`jerga tray`).
+"""Icono en la bandeja del sistema (`nyx tray`).
 
 Proceso aparte del servicio: el widget usa GTK4 y AppIndicator usa GTK3, que no pueden
 convivir en el mismo proceso. Habla con el servicio por el canal de control (status,
@@ -82,7 +82,7 @@ def fetch_status() -> dict | None:
 
 def notify(title: str, body: str = "") -> None:
     if sys.platform.startswith("linux") and shutil.which("notify-send"):
-        subprocess.Popen(["notify-send", "-a", "jerga", "-i", "audio-input-microphone", title, body])
+        subprocess.Popen(["notify-send", "-a", "nyx", "-i", "audio-input-microphone", title, body])
 
 
 def pick_files() -> list[str]:
@@ -90,18 +90,18 @@ def pick_files() -> list[str]:
     filt = "*.mp3 *.wav *.ogg *.opus *.oga *.m4a *.aac *.flac *.mp4 *.mkv *.webm *.mov"
     start = os.path.expanduser("~/Descargas") if os.path.isdir(os.path.expanduser("~/Descargas")) else os.path.expanduser("~")
     if shutil.which("kdialog"):
-        r = subprocess.run(["kdialog", "--title", "Transcribir con jerga", "--multiple", "--separate-output",
+        r = subprocess.run(["kdialog", "--title", "Transcribir con nyx", "--multiple", "--separate-output",
                             "--getopenfilename", start, f"Audio y vídeo ({filt})"], capture_output=True, text=True)
         return [line for line in r.stdout.splitlines() if line.strip()]
     if shutil.which("zenity"):
-        r = subprocess.run(["zenity", "--file-selection", "--multiple", "--separator=\n", "--title=Transcribir con jerga",
+        r = subprocess.run(["zenity", "--file-selection", "--multiple", "--separator=\n", "--title=Transcribir con nyx",
                             f"--filename={start}/", f"--file-filter=Audio y vídeo | {filt}"], capture_output=True, text=True)
         return [line for line in r.stdout.splitlines() if line.strip()]
     from tkinter import Tk, filedialog
 
     root = Tk()
     root.withdraw()
-    files = list(filedialog.askopenfilenames(title="Transcribir con jerga", initialdir=start))
+    files = list(filedialog.askopenfilenames(title="Transcribir con nyx", initialdir=start))
     root.destroy()
     return files
 
@@ -123,7 +123,7 @@ def main() -> int:
     try:
         import pystray
     except ImportError:
-        print("jerga tray: falta pystray (pip install pystray)", file=sys.stderr)
+        print("nyx tray: falta pystray (pip install pystray)", file=sys.stderr)
         return 1
     from pystray import Menu
     from pystray import MenuItem as Item
@@ -134,7 +134,7 @@ def main() -> int:
         try:
             send_command(cmd)
         except OSError:
-            notify("jerga no está en marcha")
+            notify("nyx no está en marcha")
 
     def transcribe(_icon=None, _item=None):
         def work():
@@ -151,9 +151,9 @@ def main() -> int:
 
         threading.Thread(target=work, daemon=True).start()
 
-    def trinity_start(_icon=None, _item=None):
+    def agent_restart(_icon=None, _item=None):
         def work():
-            r = subprocess.run(nyx_cmd("trinity", "restart"), capture_output=True, text=True)
+            r = subprocess.run(nyx_cmd("agent", "restart"), capture_output=True, text=True)
             notify("Trinity", (r.stdout or r.stderr).strip()[:300])
         threading.Thread(target=work, daemon=True).start()
 
@@ -177,14 +177,14 @@ def main() -> int:
 
     def restart(_icon=None, _item=None):
         if shutil.which("systemctl"):
-            subprocess.Popen(["systemctl", "--user", "restart", "jerga"])
-            notify("Reiniciando jerga…")
+            subprocess.Popen(["systemctl", "--user", "restart", "nyx"])
+            notify("Reiniciando nyx…")
 
     def title_text(_item=None) -> str:
         st = current["status"]
         if st and st.get("session"):
-            return f"jerga · grabando sesión ({st['session']['kind']}) {stamp_s(st['session']['elapsed'])}"
-        base = f"jerga · {LABELS[current['state']]}"
+            return f"nyx · grabando sesión ({st['session']['kind']}) {stamp_s(st['session']['elapsed'])}"
+        base = f"nyx · {LABELS[current['state']]}"
         if st and st.get("stt_device"):
             base += f" ({st['stt_device']})"
         return base
@@ -236,16 +236,16 @@ def main() -> int:
         ), visible=lambda _i=None: not in_session()),
         Item("Parar sesión y abrir", record_stop, visible=in_session),
         Item(trinity_label, Menu(
-            Item("Reiniciar Trinity", trinity_start, enabled=up),
+            Item("Reiniciar Trinity", agent_restart, enabled=up),
             Item("Ir a su panel", trinity_focus, visible=trinity_in_herdr),
         ), visible=lambda _i=None: bool((current["status"] or {}).get("trinity"))),
         Menu.SEPARATOR,
         Item("Configuración", lambda: open_path(str(config.ensure_config()))),
         Item("Ver log", lambda: open_path(str(config.LOG_PATH))),
-        Item("Reiniciar jerga", restart),
+        Item("Reiniciar nyx", restart),
         Item("Cerrar icono", lambda icon, _i: icon.stop()),
     )
-    icon = pystray.Icon("jerga", icon_image("down"), "jerga", menu)
+    icon = pystray.Icon("nyx", icon_image("down"), "nyx", menu)
 
     def poll(icon):
         icon.visible = True

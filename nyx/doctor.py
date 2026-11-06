@@ -1,4 +1,4 @@
-"""`jerga doctor`: comprueba el equipo, función a función, y dice cómo arreglar lo que falte.
+"""`nyx doctor`: comprueba el equipo, función a función, y dice cómo arreglar lo que falte.
 
 ✘ = rompe algo básico (dictar, pegar, leer en voz alta, transcribir) · ! = opcional o mejorable.
 """
@@ -70,7 +70,7 @@ def doctor() -> int:
     linux = config.IS_LINUX
     wl = bool(os.environ.get("WAYLAND_DISPLAY"))
     session = os.environ.get("XDG_SESSION_TYPE", "") or ("windows" if config.IS_WINDOWS else "?")
-    print(f"jerga {__version__} · Python {platform.python_version()} · {platform.system()} {platform.release()}"
+    print(f"nyx {__version__} · Python {platform.python_version()} · {platform.system()} {platform.release()}"
           f" · {session} {os.environ.get('XDG_CURRENT_DESKTOP', '')}".rstrip())
     print(f"  config: {config.ensure_config()}")
     print(f"  log:    {config.LOG_PATH}")
@@ -84,13 +84,13 @@ def doctor() -> int:
     if is_running():
         try:
             st = json.loads(send_command("status"))
-            r.ok(f"en marcha (jerga {st.get('version')})",
+            r.ok(f"en marcha (nyx {st.get('version')})",
                  f"Whisper {'listo en ' + str(st.get('stt_device')) if st.get('stt_ready') else 'cargando'}"
                  f" · voz {'lista' if st.get('tts_ready') else 'no disponible'}")
         except (OSError, ValueError):
             r.ok("en marcha")
     else:
-        r.warn("no está en marcha", "systemctl --user start jerga  (o ejecuta `jerga`)")
+        r.warn("no está en marcha", "systemctl --user start nyx  (o ejecuta `nyx`)")
 
     # -------------------------------------------------------------- dictado
     r.section("Dictado")
@@ -180,11 +180,11 @@ def doctor() -> int:
     if shutil.which("ffmpeg"):
         r.ok("ffmpeg: ficheros de audio/vídeo y notas de voz")
     else:
-        r.bad("sin ffmpeg: jerga transcribe y las notas de voz no funcionarán",
+        r.bad("sin ffmpeg: nyx transcribe y las notas de voz no funcionarán",
               _pkg_hint("ffmpeg", "ffmpeg", "ffmpeg-free") if linux else "winget install Gyan.FFmpeg")
     if linux:
         if shutil.which("parec"):
-            r.ok("audio del sistema (jerga record --system/--both)")
+            r.ok("audio del sistema (nyx record --system/--both)")
         else:
             r.warn("sin parec: no se puede grabar el audio del PC", _pkg_hint("libpulse", "pulseaudio-utils", "pulseaudio-utils"))
     if cfg["notes"]["enabled"]:
@@ -209,7 +209,7 @@ def doctor() -> int:
         import importlib.util
 
         if importlib.util.find_spec("pystray") is None:
-            r.warn("icono de bandeja: falta pystray", "reinstala jerga")
+            r.warn("icono de bandeja: falta pystray", "reinstala nyx")
         elif linux and not (_typelib("AyatanaAppIndicator3-0.1.typelib") or _typelib("AppIndicator3-0.1.typelib")):
             r.warn("icono de bandeja: falta AppIndicator",
                    _pkg_hint("libayatana-appindicator", "gir1.2-ayatanaappindicator3-0.1", "libayatana-appindicator-gtk3"))
@@ -224,7 +224,7 @@ def doctor() -> int:
             r.warn("sin kdialog/zenity: «Transcribir fichero…» usará un selector básico", _pkg_hint("zenity", "zenity", "zenity"))
 
     # ------------------------------------------------------- ver la pantalla
-    r.section("Ver la pantalla (jerga look)")
+    r.section("Ver la pantalla (nyx look)")
     vc = cfg["vision"]
     try:
         import httpx
@@ -263,7 +263,7 @@ def doctor() -> int:
             if st:
                 r.ok(f"{oc['agent']} en marcha ({st})", f"dile «{oc['agent'].capitalize()}, …»")
             else:
-                r.warn(f"{oc['agent']} no está en marcha", "el servicio la arranca solo; o: jerga trinity")
+                r.warn(f"{oc['agent']} no está en marcha", "el servicio la arranca solo; o: nyx agent")
 
     # --------------------------------------------------------- LLM opcional
     if cfg["llm"]["enabled"]:

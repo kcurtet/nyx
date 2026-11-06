@@ -5,32 +5,37 @@
     //\\
 
 Uso:
-  jerga                 arranca (widget + tecla global)
-  jerga toggle|start|stop|cancel   controla el dictado de una instancia en marcha (atajos del escritorio)
-  jerga say "texto"     lee el texto en voz alta (también por stdin: echo hola | jerga say)
-  jerga say --brief …   solo las primeras frases + "el resto lo tienes en el panel"
-  jerga read            lee el texto seleccionado (igual que Ctrl+;)
-  jerga hush            calla
-  jerga transcribe F…  audio/vídeo → .md con marcas de tiempo (--format srt|txt, --out DIR, --stdout)
-  jerga record          graba una sesión larga y la va transcribiendo (--system: audio del PC, --both: micro + PC)
-  jerga record stop     termina la sesión (y jerga record status)
-  jerga look "pregunta" mira la pantalla con un modelo de visión local (--window: ventana activa, --all: todo)
-  jerga launch "nombre"  abre una app o juego instalado (--list para ver los nombres)
-  jerga vol [up|down|mute|N]  volumen del sistema (±10 %, mute conmuta, N fija el porcentaje)
-  jerga remind "texto" en <cuándo>  recordatorio one-shot (20m, 1h, 18:00; --list, --cancel N)
-  jerga trinity         arranca la orquestadora (herdr si está; si no, pi en segundo plano) · restart
-  jerga order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
-  jerga doctor          comprueba que todo está listo en este equipo
-  jerga keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
-  jerga config          muestra la ruta del archivo de configuración
-  jerga tray            icono en la bandeja del sistema (lo arranca el servicio; [tray] enabled)
+  nyx                  arranca (widget + tecla global)
+  nyx toggle|start|stop|cancel   controla el dictado de una instancia en marcha (atajos del escritorio)
+  nyx say "texto"     lee el texto en voz alta (también por stdin: echo hola | nyx say)
+  nyx say --brief …   solo las primeras frases + "el resto lo tienes en el panel"
+  nyx read            lee el texto seleccionado (igual que Ctrl+;)
+  nyx hush            calla
+  nyx transcribe F…  audio/vídeo → .md con marcas de tiempo (--format srt|txt, --out DIR, --stdout)
+  nyx record          graba una sesión larga y la va transcribiendo (--system: audio del PC, --both: micro + PC)
+  nyx record stop     termina la sesión (y nyx record status)
+  nyx look "pregunta" mira la pantalla con un modelo de visión local (--window: ventana activa, --all: todo)
+  nyx launch "nombre"  abre una app o juego instalado (--list para ver los nombres)
+  nyx vol [up|down|mute|N]  volumen del sistema (±10 %, mute conmuta, N fija el porcentaje)
+  nyx remind "texto" en <cuándo>  recordatorio one-shot (20m, 1h, 18:00; --list, --cancel N)
+  nyx agent [restart]  arranca la orquestadora (herdr si está; si no, pi en segundo plano)
+                     ("nyx trinity" sigue valiendo como alias silencioso)
+  nyx order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
+  nyx doctor          comprueba que todo está listo en este equipo
+  nyx keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
+  nyx config          muestra la ruta del archivo de configuración
+  nyx tray            icono en la bandeja del sistema (lo arranca el servicio; [tray] enabled)
+
+El alias `jerga` (nombre anterior) sigue funcionando y te lo recuerda una sola vez.
 """
 from __future__ import annotations
 
+import os
 import signal
 import sys
 import threading
 import time
+from pathlib import Path
 
 from . import __version__, config
 from .config import log
@@ -47,11 +52,11 @@ def run():
     from .tts import Speaker
 
     if is_running():
-        print("jerga ya está en marcha. Usa `jerga toggle` o ciérralo primero.")
+        print("nyx ya está en marcha. Usa `nyx toggle` o ciérralo primero.")
         sys.exit(1)
 
     cfg = config.load()
-    log(f"jerga {__version__} · config: {config.CONFIG_PATH}")
+    log(f"nyx {__version__} · config: {config.CONFIG_PATH}")
     rec = Recorder(cfg["audio"]["samplerate"], cfg["audio"]["device"])
     stt = Transcriber(cfg["stt"])
     post = PostProcessor(cfg["replacements"], cfg["llm"], cfg["stt"]["vocabulary"], cfg["commands"])
@@ -217,7 +222,7 @@ def run():
         try:
             make_listener(cfg["hotkey"]["key"], ptt, combos, cfg["hotkey"].get("ctrl_keys")).start()
         except Exception as e:  # noqa: BLE001
-            log(f"[hotkey] no disponible ({e}); usa `jerga toggle` desde un atajo del escritorio")
+            log(f"[hotkey] no disponible ({e}); usa `nyx toggle` desde un atajo del escritorio")
         def status(_payload: str = "") -> str:
             import json
 
@@ -247,7 +252,7 @@ def run():
             import subprocess
 
             if config.IS_LINUX and shutil.which("notify-send"):
-                subprocess.Popen(["notify-send", "-a", "jerga", "-i", "audio-input-microphone", title, body])
+                subprocess.Popen(["notify-send", "-a", "nyx", "-i", "audio-input-microphone", title, body])
 
         def record_start(payload: str) -> str:
             import json
@@ -310,12 +315,12 @@ def run():
         if orch and cfg["orders"].get("autostart", True):
             orch.start_supervisor()
 
-        def trinity_start(_payload: str = "") -> str:
+        def agent_start(_payload: str = "") -> str:
             if orch is None:
                 return "Las órdenes están desactivadas ([orders] enabled = false)."
             return orch.launch()[1]
 
-        def trinity_restart(_payload: str = "") -> str:
+        def agent_restart(_payload: str = "") -> str:
             if orch is None:
                 return "Las órdenes están desactivadas ([orders] enabled = false)."
             if orch.kind == "pi":
@@ -334,7 +339,7 @@ def run():
                        "read": read_selection, "hush": hush, "order": send_order,
                        "transcribe": transcribe_req, "status": status,
                        "record-start": record_start, "record-stop": record_stop,
-                       "trinity-start": trinity_start, "trinity-restart": trinity_restart,
+                       "agent-start": agent_start, "agent-restart": agent_restart,
                        "ping": lambda: None}).start()
 
     def start_tray():
@@ -369,13 +374,15 @@ def keys():
     import evdev
     from evdev import ecodes
 
+    from .output import teclado_simulado
+
     sel = selectors.DefaultSelector()
     for p in evdev.list_devices():
         try:
             d = evdev.InputDevice(p)
         except OSError:
             continue
-        if ecodes.EV_KEY in d.capabilities() and "jerga" not in d.name and "ydotool" not in d.name:
+        if ecodes.EV_KEY in d.capabilities() and not teclado_simulado(d.name):
             sel.register(d, selectors.EVENT_READ)
     if not sel.get_map():
         sys.exit("No puedo leer ningún teclado: añade tu usuario al grupo `input` y vuelve a iniciar sesión.")
@@ -389,7 +396,7 @@ def keys():
 
 
 def _utf8_console() -> None:
-    """La consola de Windows usa cp1252 por defecto: sin esto, ✔/✘/· rompen `jerga doctor`."""
+    """La consola de Windows usa cp1252 por defecto: sin esto, ✔/✘/· rompen `nyx doctor`."""
     for stream in (sys.stdout, sys.stderr):
         enc = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
         if stream is not None and enc != "utf8" and hasattr(stream, "reconfigure"):
@@ -399,10 +406,29 @@ def _utf8_console() -> None:
                 pass
 
 
-def main():
-    from pathlib import Path
+def _aviso_alias() -> None:
+    """`jerga` es un alias de transición de `nyx` (spec 003, D3): una línea por stderr, UNA sola vez.
 
+    Se detecta por argv[0] (el symlink ~/.local/bin/jerga) o porque el wrapper de Windows
+    (jerga.cmd) exporta NYX_ALIAS=jerga. El marker vive en STATE_DIR: si no se puede escribir,
+    se avisa igual (y se reintentará la próxima vez)."""
+    invocado = Path(sys.argv[0]).name.lower() if sys.argv[0] else ""
+    if "jerga" not in invocado and os.environ.get("NYX_ALIAS", "").lower() != "jerga":
+        return
+    marker = config.STATE_DIR / ".alias-avisado"
+    if marker.exists():
+        return
+    try:
+        config.STATE_DIR.mkdir(parents=True, exist_ok=True)
+        marker.touch()
+    except OSError:
+        pass
+    print("jerga ahora es nyx", file=sys.stderr)
+
+
+def main():
     _utf8_console()
+    _aviso_alias()
     args = sys.argv[1:]
     cmd = args[0] if args else "run"
     if cmd in ("-h", "--help", "help"):
@@ -419,22 +445,22 @@ def main():
         from .vision import main as look_main
 
         sys.exit(look_main(args[1:], config.load()["vision"]))
-    if cmd == "launch":  # ANTES de prepare(): resolver y lanzar sin el LD de CUDA de jerga
+    if cmd == "launch":  # ANTES de prepare(): resolver y lanzar sin el LD de CUDA de nyx
         from .launch import main as launch_main
 
         sys.exit(launch_main(args[1:]))
-    if cmd == "vol":  # ANTES de prepare(): pactl no necesita el LD de CUDA de jerga
+    if cmd == "vol":  # ANTES de prepare(): pactl no necesita el LD de CUDA de nyx
         from .vol import main as vol_main
 
         sys.exit(vol_main(args[1:]))
-    if cmd == "remind":  # ANTES de prepare(): systemd-run no necesita el LD de CUDA de jerga
+    if cmd == "remind":  # ANTES de prepare(): systemd-run no necesita el LD de CUDA de nyx
         from .remind import main as remind_main
 
         sys.exit(remind_main(args[1:]))
-    if cmd == "trinity":
+    if cmd in ("agent", "trinity"):  # "trinity": alias silencioso una versión (spec 003, D4)
         from .hotkey import is_running, send_command
 
-        sub = "trinity-restart" if args[1:2] == ["restart"] else "trinity-start"
+        sub = "agent-restart" if args[1:2] == ["restart"] else "agent-start"
         if is_running():  # el servicio la gestiona (también sin herdr, en segundo plano)
             print(send_command(sub, timeout=120))
             return
@@ -462,9 +488,9 @@ def main():
                     req["out"] = str(Path(args[args.index("--out") + 1]).expanduser().resolve())
                 res = json.loads(send_command("record-start", json.dumps(req), timeout=30))
         except OSError:
-            sys.exit("jerga no está en marcha")
+            sys.exit("nyx no está en marcha")
         if not res.get("ok"):
-            sys.exit(f"jerga record: {res.get('error')}")
+            sys.exit(f"nyx record: {res.get('error')}")
         print(res["path"])
         return
     if cmd in ("start", "stop", "toggle", "cancel", "read", "hush", "say", "order"):
@@ -477,11 +503,11 @@ def main():
                 cmd, rest = "say-brief", rest[1:]
             payload = " ".join(rest) if rest else ("" if sys.stdin.isatty() else sys.stdin.read())
             if not payload.strip():
-                sys.exit(f'uso: jerga {cmd} "texto"   o   echo "texto" | jerga {cmd}')
+                sys.exit(f'uso: nyx {cmd} "texto"   o   echo "texto" | nyx {cmd}')
         try:
             print(send_command(cmd, payload))
         except OSError:
-            sys.exit("jerga no está en marcha")
+            sys.exit("nyx no está en marcha")
         return
     if cmd == "config":
         print(config.ensure_config())
