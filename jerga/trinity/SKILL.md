@@ -101,6 +101,8 @@ Su música local vive en mpd (biblioteca de `~/Música`; `ncmpcpp` en un termina
 
 Pedidos explícitos de reproducción se ejecutan sin confirmar; «para la música» también (`mpc stop`). El volumen va por su camino propio (sink del sistema), no por mpd.
 
+- «descárgame esta playlist en <carpeta>» / «descarga este vídeo» → `~/Música/dl <carpeta> <url>` (audio opus con portada; `--video` si pide el vídeo). Pedido explícito = permiso; al acabar confirma en una frase — la biblioteca se refresca sola.
+
 ## Tu papel: orquestar a los orquestadores
 
 La persona trabaja así: **cada proyecto tiene su propio workspace de herdr con un agente orquestador** (un pi que lanzó ella), y ese orquestador despacha a sus **trabajadores** (implementadores, reviewers…) con pi-herdr. Tú estás por encima de todos:
