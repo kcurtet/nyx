@@ -67,7 +67,7 @@ _PATH_SYMBOLS = {
 
 def _join_path(body: str) -> str:
     """Cuerpo de «ruta …»: mapea símbolos hablados y une todo SIN espacios."""
-    words = body.split()
+    words = [w.strip(".,;:!¡¿…\"'«»()") for w in body.split()]
     out = []
     i = 0
     while i < len(words):

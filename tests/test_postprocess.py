@@ -90,6 +90,11 @@ def test_ruta_simbolos():  # A1, A2
     assert rp("ruta tilde barra dev barra jerga punto md.").text == "~/dev/jerga.md"  # punto final de Whisper
 
 
+def test_ruta_pela_comas_de_whisper():  # Whisper añade comas al pausar: no van al path
+    assert rp("ruta barra home, barra vigia").text == "/home/vigia"
+    assert rp("ruta docs barra specs, punto md,").text == "docs/specs.md"
+
+
 def test_ruta_espacio_real():  # A3
     assert rp("ruta mi espacio proyecto").text == "mi proyecto"
 
