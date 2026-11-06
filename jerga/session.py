@@ -278,6 +278,15 @@ class NotesWatcher(threading.Thread):
             self.step()
 
 
+def notes_dirs(notes_cfg: dict, record_cfg: dict) -> list[str]:
+    """Carpetas vigiladas: las configuradas o, si no hay, ~/Documentos/jerga/notas (creada)."""
+    if notes_cfg.get("dirs"):
+        return list(notes_cfg["dirs"])
+    d = default_dir(record_cfg) / "notas"
+    d.mkdir(parents=True, exist_ok=True)
+    return [str(d)]
+
+
 def note_preview(md_path: Path, n: int = 160) -> str:
     """Primer texto de una transcripción .md para la notificación."""
     for line in md_path.read_text(encoding="utf-8").splitlines():

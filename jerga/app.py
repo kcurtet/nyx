@@ -275,13 +275,13 @@ def run():
             return json.dumps({"ok": True, "path": str(path), "segments": len(s.segments), "elapsed": s.elapsed})
 
         if cfg["notes"]["enabled"]:
-            from .session import NotesWatcher, note_preview
+            from .session import NotesWatcher, note_preview, notes_dirs
             from .transcribe import transcribe_file
 
             def note_done(src, md):
                 notify(f"Nota de voz: {src.name}", note_preview(md))
 
-            NotesWatcher(cfg["notes"]["dirs"], cfg["notes"]["extensions"],
+            NotesWatcher(notes_dirs(cfg["notes"], cfg["record"]), cfg["notes"]["extensions"],
                          lambda p: transcribe_file(stt, post.apply_rules, p, opts=cfg["transcribe"])[0],
                          notify=note_done).start()
 

@@ -108,7 +108,7 @@ Trocea en silencios (~25 s), transcribe con el Whisper del servicio y reescribe 
 
 ### Notas de voz
 
-Las notas de voz **nuevas** (`.ogg`, `.opus`, `.m4a`) que aparezcan en `~/Descargas` se transcriben solas: el `.md` queda al lado y te llega una notificación con el principio del texto. Las que ya tenías no se tocan. Carpetas y extensiones en `[notes]`.
+Deja una nota de voz (`.ogg`, `.opus`, `.m4a`) en **`~/Documentos/jerga/notas`** y se transcribe sola: el `.md` queda al lado y te llega una notificación con el principio del texto. Solo esa carpeta (no Descargas: ahí cae de todo); puedes añadir otras en `[notes] dirs`.
 
 ## Icono en la bandeja
 

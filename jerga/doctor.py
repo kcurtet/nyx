@@ -183,9 +183,11 @@ def doctor() -> int:
         else:
             r.warn("sin parec: no se puede grabar el audio del PC", _pkg_hint("libpulse", "pulseaudio-utils", "pulseaudio-utils"))
     if cfg["notes"]["enabled"]:
-        dirs = [d for d in cfg["notes"]["dirs"] if Path(os.path.expanduser(d)).is_dir()]
+        from .session import notes_dirs
+
+        dirs = [d for d in notes_dirs(cfg["notes"], cfg["record"]) if Path(os.path.expanduser(d)).is_dir()]
         if dirs:
-            r.ok(f"notas de voz: vigilando {', '.join(dirs)}")
+            r.ok(f"notas de voz: deja los audios en {', '.join(dirs)}")
         else:
             r.warn("notas de voz: ninguna carpeta vigilada existe", f"[notes] dirs = {cfg['notes']['dirs']}")
 

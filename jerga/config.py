@@ -94,9 +94,10 @@ DEFAULTS: dict = {
         "block_s": 300,
     },
     "notes": {
-        # Transcribe solo las notas de voz NUEVAS que aparezcan aquí (deja el .md al lado).
+        # Transcribe las notas de voz NUEVAS que TÚ dejes en estas carpetas (deja el .md al lado).
+        # [] = solo ~/Documentos/jerga/notas (se crea sola). No pongas Descargas: ahí cae de todo.
         "enabled": True,
-        "dirs": ["~/Descargas"],
+        "dirs": [],
         "extensions": [".ogg", ".opus", ".oga", ".m4a"],
     },
     "vision": {
