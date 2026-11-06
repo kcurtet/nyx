@@ -13,6 +13,7 @@ Uso:
   jerga look "pregunta" mira la pantalla con un modelo de visión local (--window: ventana activa, --all: todo)
   jerga launch "nombre"  abre una app o juego instalado (--list para ver los nombres)
   jerga vol [up|down|mute|N]  volumen del sistema (±10 %, mute conmuta, N fija el porcentaje)
+  jerga remind "texto" en <cuándo>  recordatorio one-shot (20m, 1h, 18:00; --list, --cancel N)
   jerga trinity         arranca la orquestadora (herdr si está; si no, pi en segundo plano) · restart
   jerga order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
   jerga doctor          comprueba que todo está listo en este equipo
@@ -418,6 +419,10 @@ def main():
         from .vol import main as vol_main
 
         sys.exit(vol_main(args[1:]))
+    if cmd == "remind":  # ANTES de prepare(): systemd-run no necesita el LD de CUDA de jerga
+        from .remind import main as remind_main
+
+        sys.exit(remind_main(args[1:]))
     if cmd == "trinity":
         from .hotkey import is_running, send_command
 

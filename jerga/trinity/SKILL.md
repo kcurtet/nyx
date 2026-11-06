@@ -110,6 +110,14 @@ El volumen del sistema va por su sink, no por mpd ni playerctl: `jerga vol` lo m
 - «mútelo» / «quita el mute» → `jerga vol mute` (conmuta).
 - Pedido explícito = permiso: ejecuta sin confirmar — es trivial y reversible — y di lo que devuelva («volumen al 30 %», «muteado").
 
+Los recordatorios son one-shot: `jerga remind "texto" en <cuándo>` crea un timer de systemd que a la hora dispara una notificación en pantalla y voz (`notify-send` + `jerga say`). `<cuándo>`: `20m`, `1h`, `90s` o una hora como `18:00` (si ya pasó hoy, es mañana).
+
+- «avísame en 20 minutos de apagar el fuego» → `jerga remind "apagar el fuego" en 20m` sin confirmación: la orden ya es el permiso. Confirma en una frase lo que devuelva («recordatorio 3: apagar el fuego — en 20 minutos»).
+- «recuérdame a las 18:00 sacar la basura» → `jerga remind "sacar la basura" en 18:00`.
+- «¿qué recordatorios tengo?» → `jerga remind --list` y resúmelos (si no hay, devuelve «sin recordatorios»).
+- «cancela el de las 18:00» / «cancela el 3» → `jerga remind --cancel 3` con el número que salió en la lista.
+- Si el comando añade un aviso (jerga parado, se pierde si apaga el equipo), díselo tal cual.
+
 - «descárgame esta playlist en <carpeta>» / «descarga este vídeo» → `~/Música/dl <carpeta> <url>` (audio opus con portada; `--video` si pide el vídeo). Pedido explícito = permiso; al acabar confirma en una frase — la biblioteca se refresca sola.
 
 ## Tu papel: orquestar a los orquestadores
