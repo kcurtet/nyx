@@ -99,11 +99,15 @@ def _inline(text: str, words: list[str], insert: str, capitalize_next: bool) -> 
 def _lowercase_prev(text: str, words: list[str]) -> str:
     """"KX minúsculas" → minusculiza la palabra ANTERIOR al comando y lo quita."""
     cambio = False
+    completos = {_fold(w) for w in words}
     for w in sorted(words, key=len, reverse=True):
         rx = re.compile(r"(\w+)[\s,;:.¿¡]*" + re.escape(_fold(w)) + r"(?!\w)")
         while True:
             m = rx.search(_fold(text))
             if not m:
+                break
+            # "en minúsculas" a secas: la palabra previa es el conector del comando, no un objetivo
+            if m.start() == 0 and any(c.startswith(_fold(m.group(1)) + " ") for c in completos):
                 break
             cambio = True
             text = text[: m.start()] + m.group(1).lower() + text[m.end():]
