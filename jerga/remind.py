@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from .hotkey import is_running
@@ -24,25 +25,42 @@ class _CtlError(Exception):
     """systemctl no está o no responde."""
 
 
-def parse_when(texto: str, now: datetime | None = None) -> tuple[str, str]:
-    """«20m»/«1 h»/«90 segundos» → («--on-active=1200», «en 20 minutos»); «18:00» ya pasado hoy → mañana."""
+@dataclass(frozen=True)
+class Cuando:
+    """Cuándo dispara un recordatorio: argumento para systemd-run, frase para Trinity y momento exacto."""
+
+    cuando_arg: str  # "--on-active=1200" / "--on-calendar=2026-11-09 18:00:00"
+    humano: str  # «en 20 minutos» / «hoy a las 18:00»
+    dispara_en: datetime  # momento del disparo (el aviso de apagado se mide desde aquí)
+
+
+def _ctl_disponible(*binarios: str) -> str | None:
+    """El primer binario ausente de PATH (None si están todos): guard común de los subcomandos."""
+    return next((b for b in binarios if shutil.which(b) is None), None)
+
+
+def parse_when(texto: str, now: datetime | None = None) -> Cuando:
+    """«20m»/«1 h»/«90 segundos» → Cuando(--on-active=1200, «en 20 minutos», +20 min); «18:00» ya pasado hoy → mañana."""
+    base = now or datetime.now()
     texto = texto.strip().lower()
     if m := _REL.match(texto):
         n = int(m.group(1))
         sufijo = m.group(2)
         factor, palabra = (1, "segundo") if sufijo.startswith("s") else \
                           (60, "minuto") if sufijo.startswith("m") else (3600, "hora")
-        return f"--on-active={n * factor}", f"en {n} {palabra}{'' if n == 1 else 's'}"
+        return Cuando(f"--on-active={n * factor}",
+                      f"en {n} {palabra}{'' if n == 1 else 's'}",
+                      base + timedelta(seconds=n * factor))
     if m := _HHMM.match(texto):
         h, mi = int(m.group(1)), int(m.group(2))
         if h > 23 or mi > 59:
             raise ValueError(texto)
-        base = now or datetime.now()
         objetivo = base.replace(hour=h, minute=mi, second=0, microsecond=0)
         if objetivo <= base:  # acaba de pasar (o es justo ahora): mañana
             objetivo += timedelta(days=1)
         cuando = "hoy" if objetivo.date() == base.date() else "mañana"
-        return f"--on-calendar={objetivo:%Y-%m-%d %H:%M:%S}", f"{cuando} a las {objetivo:%H:%M}"
+        return Cuando(f"--on-calendar={objetivo:%Y-%m-%d %H:%M:%S}",
+                      f"{cuando} a las {objetivo:%H:%M}", objetivo)
     raise ValueError(texto)
 
 
@@ -77,12 +95,15 @@ def _unidades() -> list[dict]:
     return [e for e in _json_tabla(res.stdout) if isinstance(e, dict)]
 
 
+def _numero_de(e: dict) -> int | None:
+    """Nº de la unidad jerga-remind-N (timer o servicio); None si el nombre no casa."""
+    m = _NUMERO.match(e.get("unit", ""))
+    return int(m.group(1)) if m else None
+
+
 def next_unit() -> str:
     """Nombre libre para el siguiente timer: máximo de las unidades existentes (timer o servicio) + 1."""
-    numeros = []
-    for e in _unidades():
-        if m := _NUMERO.match(e.get("unit", "")):
-            numeros.append(int(m.group(1)))
+    numeros = [n for e in _unidades() if (n := _numero_de(e)) is not None]
     return f"jerga-remind-{max(numeros, default=0) + 1}"
 
 
@@ -99,9 +120,9 @@ def _descriptions() -> dict[int, str]:
     try:
         out = {}
         for e in _unidades():
-            if m := _NUMERO.match(e.get("unit", "")):
+            if (n := _numero_de(e)) is not None:
                 desc = e.get("description", "")
-                out[int(m.group(1))] = desc[len(_PREFIJO):] if desc.startswith(_PREFIJO) else desc
+                out[n] = desc[len(_PREFIJO):] if desc.startswith(_PREFIJO) else desc
         return out
     except _CtlError:
         return {}
@@ -113,17 +134,9 @@ def _fmt_cuando(proximo: str) -> str:
     return m.group(1) if m else proximo.strip()
 
 
-def _segundos(cuando_arg: str, now: datetime) -> float:
-    """Segundos hasta que dispara un --on-active/--on-calendar (para el aviso de «>1 h vista»)."""
-    valor = cuando_arg.split("=", 1)[1]
-    if cuando_arg.startswith("--on-active="):
-        return float(valor)
-    return (datetime.strptime(valor, "%Y-%m-%d %H:%M:%S") - now).total_seconds()
-
-
 def _listar() -> int:
-    if shutil.which("systemctl") is None:
-        print("no puedo: systemctl no está en PATH")
+    if falta := _ctl_disponible("systemctl"):
+        print(f"no puedo: {falta} no está en PATH")
         return EXIT_ERROR
     try:
         timers = _timers()
@@ -133,8 +146,7 @@ def _listar() -> int:
     descs = _descriptions()
     filas = []
     for e in timers:
-        if m := _NUMERO.match(e.get("unit", "")):
-            n = int(m.group(1))
+        if (n := _numero_de(e)) is not None:
             filas.append((n, _fmt_cuando(e.get("next", "")), descs.get(n, "?")))
     if not filas:
         print("sin recordatorios")
@@ -149,8 +161,8 @@ def _cancelar(args: list[str]) -> int:
         print(_USO, file=sys.stderr)
         return EXIT_ERROR
     n = int(args[0])
-    if shutil.which("systemctl") is None:
-        print("no puedo: systemctl no está en PATH")
+    if falta := _ctl_disponible("systemctl"):
+        print(f"no puedo: {falta} no está en PATH")
         return EXIT_ERROR
     try:
         timers = _timers()
@@ -170,15 +182,12 @@ def _cancelar(args: list[str]) -> int:
 
 
 def _crear(texto: str, cuando: str) -> int:
-    if shutil.which("systemd-run") is None:
-        print("no puedo: systemd-run no está en PATH")
-        return EXIT_ERROR
-    if shutil.which("systemctl") is None:
-        print("no puedo: systemctl no está en PATH")
+    if falta := _ctl_disponible("systemd-run", "systemctl"):
+        print(f"no puedo: {falta} no está en PATH")
         return EXIT_ERROR
     ahora = datetime.now()
     try:
-        cuando_arg, humano = parse_when(cuando, ahora)
+        c = parse_when(cuando, ahora)
         unit = next_unit()
     except ValueError:
         print(f"no entiendo «{cuando}»: {_USO}", file=sys.stderr)
@@ -186,7 +195,7 @@ def _crear(texto: str, cuando: str) -> int:
     except _CtlError:
         print("no puedo: systemctl no responde")
         return EXIT_ERROR
-    cmd = ["systemd-run", "--user", cuando_arg, f"--unit={unit}",
+    cmd = ["systemd-run", "--user", c.cuando_arg, f"--unit={unit}",
            f"--description={_PREFIJO}{texto}", *fired_cmd(texto)]
     try:  # lista de args, nunca shell=True: el sh -c va como argumento de systemd-run
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)
@@ -197,8 +206,8 @@ def _crear(texto: str, cuando: str) -> int:
         print(f"no pude crear el recordatorio: {(res.stderr.strip() or 'systemd-run falló')[:120]}")
         return EXIT_ERROR
     n = unit.rsplit("-", 1)[1]
-    print(f"recordatorio {n}: {texto} — {humano}")
-    if _segundos(cuando_arg, ahora) > 3600:  # unidades transitorias: no sobreviven a un apagón
+    print(f"recordatorio {n}: {texto} — {c.humano}")
+    if (c.dispara_en - ahora).total_seconds() > 3600:  # unidades transitorias: no sobreviven a un apagón
         print("ojo: si apagas el equipo, se pierde")
     if not is_running():  # el timer dispara igual, pero sin servicio no hay voz
         print("Trinity no sonará: jerga está parado")

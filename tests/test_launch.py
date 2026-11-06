@@ -2,16 +2,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 import jerga.launch as L
-
-
-@pytest.fixture(autouse=True)
-def _plataforma_linux(monkeypatch):
-    """La suite corre como en Linux por defecto: main() no debe cortar por sys.platform
-    antes de nada. El test del stub win32 se pone a win32 él mismo (y gana: corre después)."""
-    monkeypatch.setattr(L.sys, "platform", "linux")
 
 DESKTOP = """[Desktop Entry]
 Type=Application

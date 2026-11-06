@@ -2,7 +2,7 @@
 import io
 import json
 import shlex
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -10,12 +10,6 @@ import pytest
 import jerga.remind as R
 
 AHORA = datetime(2026, 11, 9, 17, 0)  # lunes 9 de noviembre de 2026, 17:00
-
-
-@pytest.fixture(autouse=True)
-def _plataforma_linux(monkeypatch):
-    """La suite corre como en Linux por defecto; el test del stub win32 se pone a win32 él mismo."""
-    monkeypatch.setattr(R.sys, "platform", "linux")
 
 
 @pytest.fixture(autouse=True)
@@ -49,35 +43,48 @@ def _ctl(monkeypatch, units=(), timers=(), stop_rc=0, run_rc=0, units_rc=0, time
 # --- parse_when ------------------------------------------------------------------------
 
 def test_parse_when_minutos():
-    assert R.parse_when("20m", AHORA) == ("--on-active=1200", "en 20 minutos")
-    assert R.parse_when("20 m", AHORA) == ("--on-active=1200", "en 20 minutos")
-    assert R.parse_when("20 minutos", AHORA) == ("--on-active=1200", "en 20 minutos")
-    assert R.parse_when("1 minuto", AHORA) == ("--on-active=60", "en 1 minuto")
+    assert R.parse_when("20m", AHORA) == R.Cuando("--on-active=1200", "en 20 minutos",
+                                                  AHORA + timedelta(seconds=1200))
+    assert R.parse_when("20 m", AHORA) == R.Cuando("--on-active=1200", "en 20 minutos",
+                                                   AHORA + timedelta(minutes=20))
+    assert R.parse_when("20 minutos", AHORA) == R.Cuando("--on-active=1200", "en 20 minutos",
+                                                         AHORA + timedelta(minutes=20))
+    assert R.parse_when("1 minuto", AHORA) == R.Cuando("--on-active=60", "en 1 minuto",
+                                                       AHORA + timedelta(minutes=1))
 
 
 def test_parse_when_horas():
-    assert R.parse_when("1h", AHORA) == ("--on-active=3600", "en 1 hora")
-    assert R.parse_when("2 horas", AHORA) == ("--on-active=7200", "en 2 horas")
+    assert R.parse_when("1h", AHORA) == R.Cuando("--on-active=3600", "en 1 hora",
+                                                 AHORA + timedelta(hours=1))
+    assert R.parse_when("2 horas", AHORA) == R.Cuando("--on-active=7200", "en 2 horas",
+                                                      AHORA + timedelta(hours=2))
 
 
 def test_parse_when_segundos():
-    assert R.parse_when("90s", AHORA) == ("--on-active=90", "en 90 segundos")
-    assert R.parse_when("90 s", AHORA) == ("--on-active=90", "en 90 segundos")
-    assert R.parse_when("90 segundos", AHORA) == ("--on-active=90", "en 90 segundos")
+    assert R.parse_when("90s", AHORA) == R.Cuando("--on-active=90", "en 90 segundos",
+                                                  AHORA + timedelta(seconds=90))
+    assert R.parse_when("90 s", AHORA) == R.Cuando("--on-active=90", "en 90 segundos",
+                                                  AHORA + timedelta(seconds=90))
+    assert R.parse_when("90 segundos", AHORA) == R.Cuando("--on-active=90", "en 90 segundos",
+                                                         AHORA + timedelta(seconds=90))
 
 
 def test_parse_when_hhmm_futuro_es_hoy():
-    assert R.parse_when("18:00", AHORA) == ("--on-calendar=2026-11-09 18:00:00", "hoy a las 18:00")
+    assert R.parse_when("18:00", AHORA) == R.Cuando("--on-calendar=2026-11-09 18:00:00", "hoy a las 18:00",
+                                                    datetime(2026, 11, 9, 18, 0))
 
 
 def test_parse_when_hhmm_pasado_es_mañana():
     pasado = datetime(2026, 11, 9, 19, 0)
-    assert R.parse_when("18:00", pasado) == ("--on-calendar=2026-11-10 18:00:00", "mañana a las 18:00")
+    assert R.parse_when("18:00", pasado) == R.Cuando("--on-calendar=2026-11-10 18:00:00", "mañana a las 18:00",
+                                                     datetime(2026, 11, 10, 18, 0))
 
 
 def test_parse_when_hhmm_justo_ahora_o_hace_un_minuto_es_mañana():
-    assert R.parse_when("17:00", AHORA) == ("--on-calendar=2026-11-10 17:00:00", "mañana a las 17:00")
-    assert R.parse_when("16:59", AHORA) == ("--on-calendar=2026-11-10 16:59:00", "mañana a las 16:59")
+    assert R.parse_when("17:00", AHORA) == R.Cuando("--on-calendar=2026-11-10 17:00:00", "mañana a las 17:00",
+                                                    datetime(2026, 11, 10, 17, 0))
+    assert R.parse_when("16:59", AHORA) == R.Cuando("--on-calendar=2026-11-10 16:59:00", "mañana a las 16:59",
+                                                    datetime(2026, 11, 10, 16, 59))
 
 
 def test_parse_when_basura_valueerror():

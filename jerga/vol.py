@@ -18,14 +18,14 @@ def _clamp(n: int) -> int:
     return max(0, min(100, n))
 
 
-def build_cmd(orden: str) -> list[str]:
-    """Comando pactl para la orden: up/down (±10 %), mute (conmuta) o N ya en 0-100."""
+def build_args(orden: str | int) -> list[str]:
+    """Argumentos de pactl (sin el binario) para la orden: up/down (±10 %), mute (conmuta) o N ya clampeado 0-100."""
     if orden == "mute":
-        return ["pactl", "set-sink-mute", _SINK, "toggle"]
+        return ["set-sink-mute", _SINK, "toggle"]
     paso = {"up": "+10%", "down": "-10%"}.get(orden)
-    if paso is None:  # N (defensivo: nunca fuera de 0-100)
-        paso = f"{_clamp(int(orden))}%"
-    return ["pactl", "set-sink-volume", _SINK, paso]
+    if paso is None:  # N (int): main ya clampeó, aquí no se re-parsea
+        paso = f"{orden}%"
+    return ["set-sink-volume", _SINK, paso]
 
 
 def _pactl(args: list[str]) -> subprocess.CompletedProcess | None:
@@ -69,14 +69,19 @@ def main(argv: list[str]) -> int:
         except ValueError:
             print(_USO, file=sys.stderr)
             return EXIT_ERROR
-        orden, aviso = str(_clamp(n)), f" (pediste {n})" if _clamp(n) != n else ""
-    res = _pactl(build_cmd(orden)[1:])
+        orden = _clamp(n)  # se parsea y clampea UNA vez: build_args recibe el int definitivo
+        aviso = f" (pediste {n})" if orden != n else ""
+    res = _pactl(build_args(orden))
     if res is None or res.returncode != 0:
         detalle = (res.stderr.strip() if res else "")[:80]
         print(f"no puedo cambiar el volumen: pactl no responde{f' — {detalle}' if detalle else ''}")
         return EXIT_ERROR
-    if orden == "mute":  # conmuta: el estado real decide qué decir
-        print("muteado" if _read_mute() is not False else "con sonido")
+    if orden == "mute":  # conmuta: solo una lectura real dice en qué quedó
+        estado = _read_mute()
+        if estado is None:
+            print("mute conmutado")  # pactl no respondió: no afirmamos mute/sin mute
+        else:
+            print("muteado" if estado else "con sonido")
         return EXIT_OK
     vol = read_volume()
     print(f"volumen al {vol[:-1]} %{aviso}" if vol else f"volumen cambiado{aviso}")

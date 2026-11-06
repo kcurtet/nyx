@@ -1,16 +1,7 @@
 """Tarea 1 del plan 002: jerga vol — comandos de pactl construidos y mockeados, nunca ejecutados."""
 from types import SimpleNamespace
 
-import pytest
-
 import jerga.vol as V
-
-
-@pytest.fixture(autouse=True)
-def _plataforma_linux(monkeypatch):
-    """La suite corre como en Linux por defecto; el test del stub win32 se pone a win32 él mismo."""
-    monkeypatch.setattr(V.sys, "platform", "linux")
-
 
 # salida real de `pactl get-sink-volume @DEFAULT_SINK@` en este equipo (PipeWire)
 PACTL_VOLUME = (
@@ -45,24 +36,21 @@ def _pactl(monkeypatch, volume=PACTL_VOLUME, mute="Mute: yes\n", rc=0):
     return calls
 
 
-# --- build_cmd ------------------------------------------------------------------------
+# --- build_args ------------------------------------------------------------------------
 
-def test_build_cmd_up_y_down():
-    assert V.build_cmd("up") == ["pactl", "set-sink-volume", "@DEFAULT_SINK@", "+10%"]
-    assert V.build_cmd("down") == ["pactl", "set-sink-volume", "@DEFAULT_SINK@", "-10%"]
-
-
-def test_build_cmd_mute_es_set_sink_mute_toggle():
-    assert V.build_cmd("mute") == ["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"]
+def test_build_args_up_y_down():
+    assert V.build_args("up") == ["set-sink-volume", "@DEFAULT_SINK@", "+10%"]
+    assert V.build_args("down") == ["set-sink-volume", "@DEFAULT_SINK@", "-10%"]
 
 
-def test_build_cmd_porcentaje_fijo():
-    assert V.build_cmd("30") == ["pactl", "set-sink-volume", "@DEFAULT_SINK@", "30%"]
+def test_build_args_mute_es_set_sink_mute_toggle():
+    assert V.build_args("mute") == ["set-sink-mute", "@DEFAULT_SINK@", "toggle"]
 
 
-def test_build_cmd_clampa_fuera_de_rango():
-    assert V.build_cmd("130")[3] == "100%"
-    assert V.build_cmd("-5")[3] == "0%"
+def test_build_args_porcentaje_fijo():
+    assert V.build_args(30) == ["set-sink-volume", "@DEFAULT_SINK@", "30%"]
+    assert V.build_args(0) == ["set-sink-volume", "@DEFAULT_SINK@", "0%"]
+    assert V.build_args(100) == ["set-sink-volume", "@DEFAULT_SINK@", "100%"]
 
 
 # --- read_volume ----------------------------------------------------------------------
@@ -126,13 +114,13 @@ def test_main_fija_porcentaje(monkeypatch, capsys):
 def test_main_porcentaje_con_simbolo_tambien_vale(monkeypatch, capsys):
     calls = _pactl(monkeypatch, volume=_vol(70))
     assert V.main(["70%"]) == V.EXIT_OK
-    assert calls[0][3] == "70%"
+    assert calls[0] == ["pactl", "set-sink-volume", "@DEFAULT_SINK@", "70%"]
 
 
 def test_main_clamp_alto_con_aviso_no_error(monkeypatch, capsys):
     calls = _pactl(monkeypatch, volume=_vol(100))
     assert V.main(["130"]) == V.EXIT_OK
-    assert calls[0][3] == "100%"
+    assert calls[0] == ["pactl", "set-sink-volume", "@DEFAULT_SINK@", "100%"]
     out = capsys.readouterr().out
     assert out.count("\n") == 1  # una línea, no un error
     assert "100 %" in out and "130" in out
@@ -157,6 +145,20 @@ def test_main_mute_a_sonando(monkeypatch, capsys):
     _pactl(monkeypatch, mute="Mute: no\n")
     assert V.main(["mute"]) == V.EXIT_OK
     assert capsys.readouterr().out == "con sonido\n"
+
+
+def test_main_mute_sin_lectura_es_neutro(monkeypatch, capsys):
+    """get-sink-mute falla tras el toggle: ni «muteado» ni «con sonido» — la línea honesta."""
+
+    def fake_run(cmd, **kwargs):
+        if cmd[1] == "get-sink-mute":
+            return SimpleNamespace(returncode=1, stdout="", stderr="boom")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(V.subprocess, "run", fake_run)
+    monkeypatch.setattr(V.shutil, "which", lambda b: "/usr/bin/pactl")
+    assert V.main(["mute"]) == V.EXIT_OK
+    assert capsys.readouterr().out == "mute conmutado\n"
 
 
 # --- main: errores y stub -------------------------------------------------------------

@@ -78,3 +78,5 @@ def main(argv: list[str]) -> int                 # ["apagar el fuego", "en", "20
 - Cobertura: D1 (T1), D2/D3-recordatorios (T2), D4 (T3), D5 (T3), A1/A2 (T1 tests), A3/A4/A5 (T2 tests), A6 (T1+T2 skill), A7/A8 (T3 skill).
 - Foco de revisión: cada línea con su test (1→tests mock, 2→fixture/stub, 3→parse con now inyectado, 4→contador mock, 5→fired_cmd).
 - Consistencia: ambos módulos replican el patrón launch (EXIT_*, stub win32 en main, stdout para Trinity).
+
+Extra fuera de spec, pedido directo del usuario en sesión: viñeta camoufox en la skill (venv ~/.local/share/agent-tools) — asentado en la review como desviación documentada.
