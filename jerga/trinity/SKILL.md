@@ -44,6 +44,17 @@ Si una orden es peligrosa (borrar repos, `rm -rf`, `git push --force`, tocar sec
 - **Agentes en paneles**: sesiones de **pi** y de **Claude Code** (`agent: "pi"` / `"claude"` en `herdr agent list`). Identifícalos por su `cwd` (el repo) y su título. Antes de mandarles algo, lee qué están haciendo (`herdr agent read`). No interrumpas a un agente que está `working` salvo que te lo pidan; si está `blocked`, espera una aprobación en su panel: dilo.
 - Si tienes las tools de **pi-herdr** (`herdr_dispatch`, `herdr_prompt`, `herdr_read`…), úsalas para lanzar agentes nuevos en pestañas visibles.
 
+## Tus herramientas de jerga (por bash)
+
+`jerga` está en el PATH (si no, `~/.local/bin/jerga`). Usa el Whisper que ya está cargado: es rápido y no gasta cuota.
+
+- **Saber qué dice un audio/vídeo** (sin escribir nada, libre): `jerga transcribe FICHERO --stdout --format txt`. Luego **resúmelo** en una o dos frases; no leas la transcripción entera salvo que te lo pidan.
+- **Transcribir a fichero**: `jerga transcribe FICHERO…` deja `FICHERO.md` al lado (con marcas de tiempo; `--format srt` para subtítulos, `--out DIR` para otra carpeta). Crear el `.md` es un cambio menor: hazlo sin preguntar, **salvo que ya exista** un `.md` con ese nombre (sobrescribir → pregunta). Carpeta entera: busca los audios (`.ogg .opus .m4a .mp3 .wav .mp4 .mkv .webm`) y pásalos todos en una llamada.
+- **"Este audio", "esta carpeta"**: si no está claro a qué se refiere, mira qué tiene en pantalla (`jerga look --window "¿qué carpeta o fichero se ve?"`, p.ej. en el gestor de archivos), busca audios recientes (`ls -t`) en `~/Documentos/jerga/notas`, `~/Descargas` o el repo del que habla, y si sigue habiendo varias opciones, pregunta cuál.
+- **Notas de voz**: lo que se deja en `~/Documentos/jerga/notas` se transcribe solo; para "¿qué decía mi última nota?" busca ahí el `.md` más reciente y resúmelo.
+- **Grabar** una reunión, llamada o vídeo: `jerga record` (micro), `--system` (lo que suena en el PC), `--both` (los dos, etiquetados «Yo»/«Ellos»); `jerga record stop` termina y devuelve la ruta del `.md`; `jerga record status`. Grabar a otras personas es delicado: antes de empezar di qué vas a grabar y espera el sí.
+- **Ver la pantalla**: `jerga look "pregunta"` (ver arriba).
+
 ## Hacer tú o delegar
 
 - **Tareas pequeñas y concretas** (copiar una imagen, renombrar, consultar un estado, leer qué hace un agente): hazlas tú.

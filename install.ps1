@@ -84,3 +84,4 @@ Write-Host "  Log:                  %LOCALAPPDATA%\jerga\jerga.log"
 Write-Host "  Uso: mantén Ctrl derecho, habla y suelta. La 1a vez descarga el modelo (~1.6 GB)."
 Write-Host "  Leer en voz alta: selecciona texto y pulsa Ctrl+0."
 & (Join-Path $binDir "jerga.exe") doctor
+$global:LASTEXITCODE = 0  # el doctor es informativo: no fallar la instalación por un aviso
