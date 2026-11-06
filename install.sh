@@ -181,7 +181,7 @@ echo
 echo "${c_g}${c_b}jerga instalado.${c_0}"
 case ":$PATH:" in *":$BIN:"*) ;; *) warn "añade $BIN a tu PATH";; esac
 echo "  Comprueba el equipo:  jerga doctor"
-echo "  Configuración:        $(jerga config 2>/dev/null || echo '~/.config/jerga/config.toml')"
+echo "  Configuración:        $("$PREFIX/venv/bin/jerga" config 2>/dev/null || echo "$HOME/.config/jerga/config.toml")"
 echo "  Uso: mantén Ctrl derecho, habla y suelta. La 1ª vez descarga el modelo (~1.6 GB)."
 echo "  Leer en voz alta: selecciona texto y pulsa Ctrl+0 (o di «léeme esto»)."
 command -v ollama >/dev/null && ! ollama list 2>/dev/null | grep -q lfm3-omni && \

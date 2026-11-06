@@ -1,0 +1,63 @@
+name: Instalación
+
+# Comprueba que install.sh / install.ps1 instalan jerga de cero en cada sistema.
+on:
+  push:
+    branches: [main]
+    paths: [install.sh, install.ps1, pyproject.toml, "jerga/**", .github/workflows/install.yml]
+  pull_request:
+    paths: [install.sh, install.ps1, pyproject.toml, "jerga/**", .github/workflows/install.yml]
+  schedule:
+    - cron: "0 6 * * 1"  # los lunes: detectar paquetes que cambian de nombre en las distros
+  workflow_dispatch:
+
+concurrency:
+  group: install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["debian:trixie", "ubuntu:24.04", "fedora:43", "opensuse/tumbleweed", "archlinux:latest"]
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      TERM: dumb
+    steps:
+      - name: Requisitos mínimos del contenedor
+        run: |
+          if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y -qq sudo git ca-certificates; fi
+          if command -v dnf >/dev/null; then dnf install -y -q sudo git; fi
+          if command -v zypper >/dev/null; then zypper -q -n install sudo git tar gzip; fi
+          if command -v pacman >/dev/null; then pacman -Syu --noconfirm --needed sudo git; fi
+      - uses: actions/checkout@v4
+      - name: install.sh
+        run: ./install.sh --local --no-service
+      - name: Comprobar la instalación
+        run: |
+          "$HOME/.local/bin/jerga" --version
+          "$HOME/.local/share/jerga/venv/bin/python" -c "import jerga.app, jerga.transcribe, jerga.tts, jerga.tray, jerga.orders, jerga.session, faster_whisper, ptts, evdev, pystray; print('imports OK')"
+          for c in ffmpeg parec notify-send; do command -v "$c" >/dev/null && echo "✔ $c" || { echo "✘ falta $c"; exit 1; }; done
+      - name: jerga doctor (informativo; sin micro ni teclado en CI)
+        run: '"$HOME/.local/bin/jerga" doctor || true'
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install.ps1
+        shell: pwsh
+        run: ./install.ps1 -Local -Cpu -NoStartup -NoRun
+      - name: Comprobar la instalación
+        shell: pwsh
+        run: |
+          $bin = (uv tool dir --bin).Trim()
+          & "$bin\jerga.exe" --version
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          & "$bin\jerga.exe" doctor
+          exit 0

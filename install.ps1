@@ -7,7 +7,8 @@
 #   -NoStartup  no arrancar jerga con Windows
 #   -Local      instalar desde esta carpeta (desarrollo) en vez de GitHub
 #   -Uninstall  desinstalar
-param([switch]$Cpu, [switch]$NoStartup, [switch]$Local, [switch]$Uninstall)
+#   -NoRun      no arrancar jerga al terminar (CI)
+param([switch]$Cpu, [switch]$NoStartup, [switch]$Local, [switch]$Uninstall, [switch]$NoRun)
 $ErrorActionPreference = "Stop"
 $Repo = "https://github.com/kcurtet/jerga"
 $Startup = Join-Path ([Environment]::GetFolderPath("Startup")) "jerga.lnk"
@@ -70,8 +71,10 @@ if (-not $NoStartup) {
     $sh.Save()
 }
 
-Step "Arrancando jerga"
-Start-Process $gui
+if (-not $NoRun) {
+    Step "Arrancando jerga"
+    Start-Process $gui
+}
 
 Write-Host ""
 Write-Host "jerga instalado." -ForegroundColor Green

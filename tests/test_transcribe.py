@@ -117,7 +117,7 @@ def test_ficheros_largos_por_bloques():
         audio[SR * (60 * m - 8): SR * (60 * m - 7)] = 0
     lim = blocks(audio.size, audio, 300)
     assert len(lim) == 5 and lim[0][0] == 0 and lim[-1][1] == audio.size
-    assert all(a2 == b1 for (_, b1), (a2, _) in zip(lim, lim[1:]))  # sin huecos ni solapes
+    assert all(a2 == b1 for (_, b1), (a2, _) in zip(lim, lim[1:], strict=False))  # sin huecos ni solapes
     assert abs(lim[0][1] / SR - (300 - 7.5)) < 0.6  # cortado en el silencio
 
     calls = []

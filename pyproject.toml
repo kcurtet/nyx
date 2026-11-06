@@ -44,3 +44,21 @@ Homepage = "https://github.com/kcurtet/jerga"
 
 [tool.hatch.build.targets.wheel]
 packages = ["jerga"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# errores, avisos, pyflakes, orden de imports, bugbear
+select = ["E", "W", "F", "I", "B"]
+ignore = [
+  "E501",  # líneas largas: las decide el formato de cada caso
+  "B008",  # llamadas en defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "B011"]  # imports a mitad de fichero en tests agrupados por tema
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]

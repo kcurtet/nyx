@@ -92,11 +92,11 @@ def pick_files() -> list[str]:
     if shutil.which("kdialog"):
         r = subprocess.run(["kdialog", "--title", "Transcribir con jerga", "--multiple", "--separate-output",
                             "--getopenfilename", start, f"Audio y vídeo ({filt})"], capture_output=True, text=True)
-        return [l for l in r.stdout.splitlines() if l.strip()]
+        return [line for line in r.stdout.splitlines() if line.strip()]
     if shutil.which("zenity"):
         r = subprocess.run(["zenity", "--file-selection", "--multiple", "--separator=\n", "--title=Transcribir con jerga",
                             f"--filename={start}/", f"--file-filter=Audio y vídeo | {filt}"], capture_output=True, text=True)
-        return [l for l in r.stdout.splitlines() if l.strip()]
+        return [line for line in r.stdout.splitlines() if line.strip()]
     from tkinter import Tk, filedialog
 
     root = Tk()
@@ -125,7 +125,8 @@ def main() -> int:
     except ImportError:
         print("jerga tray: falta pystray (pip install pystray)", file=sys.stderr)
         return 1
-    from pystray import Menu, MenuItem as Item
+    from pystray import Menu
+    from pystray import MenuItem as Item
 
     current = {"state": "down", "status": None}
 
@@ -142,9 +143,9 @@ def main() -> int:
                 return
             notify("Transcribiendo…", "\n".join(os.path.basename(f) for f in files))
             r = subprocess.run(jerga_cmd("transcribe", *files), capture_output=True, text=True)
-            lines = [l for l in r.stderr.splitlines() if l.startswith(("✔", "✘"))]
+            lines = [line for line in r.stderr.splitlines() if line.startswith(("✔", "✘"))]
             notify("Transcripción terminada" if r.returncode == 0 else "Transcripción con errores", "\n".join(lines)[:400])
-            done = [l.split("→ ", 1)[1].split("  [")[0] for l in lines if l.startswith("✔") and "→ " in l]
+            done = [line.split("→ ", 1)[1].split("  [")[0] for line in lines if line.startswith("✔") and "→ " in line]
             if len(done) == 1:
                 open_path(done[0])
 

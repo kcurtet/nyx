@@ -33,10 +33,10 @@ def run():
     from . import ui as ui_mod
     from .audio import Recorder
     from .hotkey import ControlServer, PushToTalk, is_running, make_listener
+    from .orders import Orchestrator, match_wake
     from .output import Output
     from .postprocess import PostProcessor
     from .stt import Transcriber
-    from .orders import Orchestrator, match_wake
     from .tts import Speaker
 
     if is_running():
@@ -307,11 +307,10 @@ def run():
                        "ping": lambda: None}).start()
 
     def start_tray():
+        import importlib.util
         import subprocess
 
         from .platform_env import clean_child_env
-
-        import importlib.util
 
         # Solo comprobar que existe: importarlo aquí cargaría GTK3 junto al GTK4 del widget.
         if importlib.util.find_spec("pystray") is None:

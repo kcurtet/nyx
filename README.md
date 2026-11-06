@@ -1,5 +1,7 @@
 # jerga
 
+[![CI](https://github.com/kcurtet/jerga/actions/workflows/ci.yml/badge.svg)](https://github.com/kcurtet/jerga/actions/workflows/ci.yml) [![Instalación](https://github.com/kcurtet/jerga/actions/workflows/install.yml/badge.svg)](https://github.com/kcurtet/jerga/actions/workflows/install.yml)
+
 **Dictado que entiende tu jerga.** Habla en español, di `git push`, `docker compose` o `pull request`, y aparece bien escrito donde tengas el cursor.
 
 Mantén **Ctrl derecho** → habla → suelta. Todo en local, con Whisper en tu GPU (o CPU).

@@ -140,6 +140,9 @@ def test_frases_orden_leer_y_callar():
 
 
 def test_ctrl_con_swapcaps(monkeypatch):
+    import pytest
+
+    pytest.importorskip("evdev")  # solo Linux
     import jerga.hotkey as hk
 
     assert hk.ctrl_key_names(["ctrl:swapcaps"]) == {"KEY_RIGHTCTRL", "KEY_CAPSLOCK"}
