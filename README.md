@@ -64,6 +64,8 @@ Revisa GPU, micrófono, tecla global, portapapeles y widget, y dice cómo arregl
 | `jerga toggle` / `start` / `stop` / `cancel` | control del dictado desde atajos o scripts |
 | `jerga say "…"` / `jerga hush` | leer texto en voz alta / callar |
 | `jerga launch "steam"` | abre una app o juego instalado (`--list` para ver los nombres) |
+| `jerga vol [30]` | volumen del sistema: `up`, `down`, `mute` o porcentaje |
+| `jerga remind "apagar el fuego" en 20m` | recordatorio one-shot con aviso y voz (`18:00` también; `--list`, `--cancel N`) |
 | `jerga keys` | muestra el nombre de las teclas que pulses (para cambiar la tecla) |
 | `jerga config` | ruta del archivo de configuración |
 
