@@ -115,6 +115,12 @@ DEFAULTS: dict = {
         "agent": "trinity",  # nombre del agente en herdr
         "model": "",  # modelo de pi para Trinity ("" = el que uses por defecto)
         "debug": False,  # log de la extensión de voz en ~/.local/state/jerga/voice.log
+        # auto: herdr si está en marcha (paneles visibles); si no, pi en segundo plano; sin pi, no disponible.
+        "backend": "auto",
+        "autostart": True,  # el servicio la arranca y la vuelve a levantar si se cae
+        # Extensiones de pi extra para Trinity (nombre de paquete instalado con `pi install`, o ruta).
+        # pi-web-access: buscar en internet y leer páginas. Las que no estén instaladas se omiten.
+        "extensions": ["pi-web-access"],
         # Arrancar solo con lo necesario (estado de herdr + pi-herdr + voz), sin tus otras extensiones/skills.
         "isolated": True,
         "topology": "workspace",  # workspace propio (recomendado) o "tab" en el workspace actual

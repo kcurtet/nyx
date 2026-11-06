@@ -289,7 +289,7 @@ def _server_socket() -> socket.socket:
 
 MAX_PAYLOAD = 1 << 20  # 1 MB
 # Comandos que se ejecutan ANTES de responder y devuelven su resultado (pueden tardar minutos).
-SYNC_COMMANDS = {"transcribe", "status", "record-start", "record-stop"}
+SYNC_COMMANDS = {"transcribe", "status", "record-start", "record-stop", "trinity-start", "trinity-restart"}
 WITH_PAYLOAD = {"say", "say-brief", "order", "transcribe", "record-start"}
 
 

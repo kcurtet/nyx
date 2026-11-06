@@ -152,8 +152,24 @@ def main() -> int:
         threading.Thread(target=work, daemon=True).start()
 
     def trinity_start(_icon=None, _item=None):
-        r = subprocess.run(jerga_cmd("trinity"), capture_output=True, text=True)
-        notify("Trinity", (r.stdout or r.stderr).strip()[:300])
+        def work():
+            r = subprocess.run(jerga_cmd("trinity", "restart"), capture_output=True, text=True)
+            notify("Trinity", (r.stdout or r.stderr).strip()[:300])
+        threading.Thread(target=work, daemon=True).start()
+
+    def trinity_label(_item=None) -> str:
+        t = (current["status"] or {}).get("trinity") or {}
+        if not t:
+            return "Trinity"
+        if t.get("backend") is None:
+            return "Trinity · no disponible"
+        state = {"idle": "lista", "working": "trabajando", "blocked": "esperando tu aprobación",
+                 "done": "lista", None: "arrancando…"}.get(t.get("state"), t.get("state"))
+        where = "herdr" if t["backend"] == "herdr" else "segundo plano"
+        return f"Trinity · {state} ({where})"
+
+    def trinity_in_herdr(_item=None) -> bool:
+        return ((current["status"] or {}).get("trinity") or {}).get("backend") == "herdr"
 
     def trinity_focus(_icon=None, _item=None):
         if shutil.which("herdr"):
@@ -206,7 +222,6 @@ def main() -> int:
             if r.returncode == 0 and path:
                 open_path(path)
         threading.Thread(target=work, daemon=True).start()
-    has_herdr = shutil.which("herdr") is not None
 
     menu = Menu(
         Item(title_text, None, enabled=False),
@@ -220,10 +235,10 @@ def main() -> int:
             Item("Micrófono + audio del PC", record("--both"), enabled=no_session),
         ), visible=lambda _i=None: not in_session()),
         Item("Parar sesión y abrir", record_stop, visible=in_session),
-        *([Item("Trinity", Menu(
-            Item("Arrancar Trinity", trinity_start, enabled=up),
-            Item("Ir a su panel", trinity_focus),
-        ))] if has_herdr else []),
+        Item(trinity_label, Menu(
+            Item("Reiniciar Trinity", trinity_start, enabled=up),
+            Item("Ir a su panel", trinity_focus, visible=trinity_in_herdr),
+        ), visible=lambda _i=None: bool((current["status"] or {}).get("trinity"))),
         Menu.SEPARATOR,
         Item("Configuración", lambda: open_path(str(config.ensure_config()))),
         Item("Ver log", lambda: open_path(str(config.LOG_PATH))),

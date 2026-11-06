@@ -11,7 +11,7 @@ Uso:
   jerga record          graba una sesión larga y la va transcribiendo (--system: audio del PC, --both: micro + PC)
   jerga record stop     termina la sesión (y jerga record status)
   jerga look "pregunta" mira la pantalla con un modelo de visión local (--window: ventana activa, --all: todo)
-  jerga trinity         arranca la orquestadora (pi en una pestaña de herdr)
+  jerga trinity         arranca la orquestadora (herdr si está; si no, pi en segundo plano) · restart
   jerga order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
   jerga doctor          comprueba que todo está listo en este equipo
   jerga keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
@@ -225,6 +225,8 @@ def run():
                 "dictation_key": cfg["hotkey"]["key"],
                 "read_key": cfg["tts"]["key"],
                 "orders": cfg["orders"]["agent"] if orch else None,
+                "trinity": ({"backend": orch.kind, "state": orch.status(max_age=5), "reason": orch.reason}
+                            if orch else None),
                 "session": ({"path": str(session["s"].path), "elapsed": session["s"].elapsed,
                              "kind": session["s"].kind} if session["s"] else None),
             })
@@ -298,12 +300,34 @@ def run():
 
         if cfg["tray"]["enabled"]:
             start_tray()
+        if orch and cfg["orders"].get("autostart", True):
+            orch.start_supervisor()
+
+        def trinity_start(_payload: str = "") -> str:
+            if orch is None:
+                return "Las órdenes están desactivadas ([orders] enabled = false)."
+            return orch.launch()[1]
+
+        def trinity_restart(_payload: str = "") -> str:
+            if orch is None:
+                return "Las órdenes están desactivadas ([orders] enabled = false)."
+            if orch.kind == "pi":
+                orch.stop()
+            elif orch.kind == "herdr":
+                from .orders import _herdr
+
+                code, data, _ = _herdr("agent", "get", orch.agent)
+                ws = ((data or {}).get("result", {}).get("agent") or {}).get("workspace_id")
+                if ws:
+                    _herdr("workspace", "close", ws)
+            return orch.launch()[1]
 
         ControlServer({"start": start, "stop": stop, "toggle": toggle, "cancel": cancel,
                        "say": say, "say-brief": lambda t: say(t, brief=True),
                        "read": read_selection, "hush": hush, "order": send_order,
                        "transcribe": transcribe_req, "status": status,
                        "record-start": record_start, "record-stop": record_stop,
+                       "trinity-start": trinity_start, "trinity-restart": trinity_restart,
                        "ping": lambda: None}).start()
 
     def start_tray():
@@ -385,6 +409,12 @@ def main():
 
         sys.exit(look_main(args[1:], config.load()["vision"]))
     if cmd == "trinity":
+        from .hotkey import is_running, send_command
+
+        sub = "trinity-restart" if args[1:2] == ["restart"] else "trinity-start"
+        if is_running():  # el servicio la gestiona (también sin herdr, en segundo plano)
+            print(send_command(sub, timeout=120))
+            return
         from .orders import launch
 
         sys.exit(launch(config.load()["orders"]))
