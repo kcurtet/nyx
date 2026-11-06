@@ -1,8 +1,11 @@
-"""Escáner de apps instaladas: entradas .desktop del menú XDG y juegos Steam (appmanifests)."""
+"""Escáner de apps instaladas, matching plegado y arranque detached (.desktop vía gtk-launch, Steam vía appid)."""
 from __future__ import annotations
 
+import difflib
 import os
 import re
+import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,9 +14,10 @@ from .commands import _fold
 
 EXIT_OK, EXIT_AMBIGUOUS, EXIT_NOT_FOUND, EXIT_ERROR = 0, 3, 4, 5
 
-_USO = 'uso: jerga launch --list [filtro] · jerga launch "nombre"'
+_USO = 'uso: jerga launch "nombre" [--pick N] · jerga launch --list [filtro]'
 _RAIZ_STEAM = Path("~/.steam/steam").expanduser()
 _STEAM_ARTEFACTOS = re.compile(r"proton|steam linux runtime|redistributable|voice files", re.I)
+_SESSION_KEYS = ("DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "XAUTHORITY")
 _VDF_PATH = re.compile(r'"path"\s+"([^"]+)"')
 _ACF_PAR = re.compile(r'"([^"]+)"\s+"([^"]*)"')
 
@@ -26,6 +30,9 @@ class Candidate:
     desktop_id: str | None = None  # id para gtk-launch (subdirectorios → guiones)
     appid: str | None = None  # juego Steam
     path: str = ""  # fichero de origen (debug)
+    filefold: str = ""  # _fold del nombre de fichero (desktop_id o stem del ACF), precalculado
+    generic: str = ""  # _fold(GenericName=), precalculado
+    keywords: str = ""  # _fold(Keywords=), precalculado
 
 
 def desktop_dirs() -> list[Path]:
@@ -116,7 +123,9 @@ def _desktop_cands() -> list[Candidate]:
             if desktop_id in vistos:
                 continue
             vistos.add(desktop_id)
-            out.append(Candidate(nombre, _fold(nombre), "desktop", desktop_id=desktop_id, path=str(f)))
+            out.append(Candidate(nombre, _fold(nombre), "desktop", desktop_id=desktop_id, path=str(f),
+                                 filefold=_fold(desktop_id), generic=_fold(datos.get("GenericName", "")),
+                                 keywords=_fold(datos.get("Keywords", ""))))
     return out
 
 
@@ -137,7 +146,8 @@ def _steam_cands(ya: set[str]) -> list[Candidate]:
             if folded in ya:  # mismo juego ya presente como .desktop
                 continue
             ya.add(folded)
-            out.append(Candidate(nombre, folded, "steam", appid=appid, path=str(f)))
+            out.append(Candidate(nombre, folded, "steam", appid=appid, path=str(f),
+                                 filefold=_fold(f.stem)))
     return out
 
 
@@ -146,6 +156,70 @@ def collect() -> list[Candidate]:
     desktops = _desktop_cands()
     steam = _steam_cands({c.folded for c in desktops})
     return sorted(desktops + steam, key=lambda c: (c.folded, c.desktop_id or c.appid or ""))
+
+
+def _score(q: str, c: Candidate) -> int:
+    """Puntos de una candidata: exacto 100, Name 50, fichero 40, genérico/keywords 25."""
+    if q == c.folded:
+        return 100
+    if len(q) < 3:  # subcadenas cortas matchean media biblioteca
+        return 0
+    if q in c.folded:
+        return 50
+    if q in c.filefold:
+        return 40
+    if q in c.generic or q in c.keywords:
+        return 25
+    return 0
+
+
+def match(query: str, cands: list[Candidate]) -> list[Candidate]:
+    """Candidatas que matchean la consulta, ordenadas y deterministas (-score, plegado, id)."""
+    q = _fold(query).strip()
+    if not q:
+        return []
+    scored = [(c, s) for c in cands if (s := _score(q, c))]
+    exactos = [c for c, s in scored if s == 100]
+    if len(exactos) == 1:  # un exacto único gana a todos los parciales
+        return exactos
+    scored.sort(key=lambda par: (-par[1], par[0].folded, par[0].desktop_id or par[0].appid or ""))
+    return [c for c, _ in scored]
+
+
+def launch_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    """Copia env (u os.environ) sin los LD de CUDA de jerga; claves de sesión ausentes, del session manager."""
+    out = dict(os.environ if env is None else env)
+    out.pop("LD_PRELOAD", None)
+    out.pop("LD_LIBRARY_PATH", None)
+    faltan = [k for k in _SESSION_KEYS if not out.get(k)]
+    if not faltan:
+        return out
+    try:
+        res = subprocess.run(["systemctl", "--user", "show-environment"],
+                             capture_output=True, text=True, timeout=2, check=False)
+    except (OSError, subprocess.SubprocessError):  # sin systemctl o colgado: seguimos con lo que hay
+        return out
+    for line in res.stdout.splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key in faltan:
+            out[key] = value
+    return out
+
+
+class _BinarioAusente(Exception):
+    """El lanzador (gtk-launch, steam) no está en PATH."""
+
+
+def launch(cand: Candidate, env: dict[str, str] | None = None) -> None:
+    """Arranca la candidata detached: gtk-launch para .desktop, steam:// para juegos de Steam."""
+    if cand.kind == "steam":
+        cmd = ["steam", f"steam://rungameid/{cand.appid}"]
+    else:
+        cmd = ["gtk-launch", cand.desktop_id or ""]
+    if shutil.which(cmd[0]) is None:
+        raise _BinarioAusente(cmd[0])
+    subprocess.Popen(cmd, env=launch_env(env), start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def main(argv: list[str]) -> int:
@@ -158,5 +232,42 @@ def main(argv: list[str]) -> int:
             if filtro in c.folded:
                 print(c.name)
         return EXIT_OK
-    print(_USO, file=sys.stderr)
-    return EXIT_ERROR
+    args, pick = argv[:], None
+    if "--pick" in args:
+        i = args.index("--pick")
+        if i + 1 >= len(args) or not args[i + 1].isdigit():
+            print(_USO, file=sys.stderr)
+            return EXIT_ERROR
+        pick = int(args[i + 1])
+        args = args[:i] + args[i + 2:]
+    if not args:
+        print(_USO, file=sys.stderr)
+        return EXIT_ERROR
+    query = " ".join(args)
+    todas = collect()
+    cands = match(query, todas)
+    if not cands:
+        por_folded = {c.folded: c.name for c in todas}
+        cercanas = difflib.get_close_matches(_fold(query), por_folded, n=3)
+        print(f"no encuentro nada parecido a «{query}»")
+        if cercanas:
+            print("¿Quisiste decir: " + ", ".join(por_folded[f] for f in cercanas) + "?")
+        return EXIT_NOT_FOUND
+    if pick is not None:
+        if not 1 <= pick <= len(cands):  # el orden es determinista: el índice re-resuelve igual
+            print(f"no hay candidata número {pick}")
+            return EXIT_ERROR
+        elegida = cands[pick - 1]
+    elif len(cands) > 1:
+        for i, c in enumerate(cands, 1):
+            print(f"{i}) {c.name}")
+        return EXIT_AMBIGUOUS
+    else:
+        elegida = cands[0]
+    try:
+        launch(elegida)
+    except _BinarioAusente as e:
+        print(f"no puedo lanzar: {e} no está en PATH")
+        return EXIT_ERROR
+    print(f"OK {elegida.name}")
+    return EXIT_OK
