@@ -240,7 +240,7 @@ def doctor() -> int:
     if linux and not any(shutil.which(t) for t in ("spectacle", "grim", "gnome-screenshot", "maim", "scrot")):
         r.warn("sin herramienta de captura", "instala spectacle (KDE), grim (wlroots) o gnome-screenshot")
 
-    # ---------------------------------------------------------------- Trinity
+    # ---------------------------------------------------------------- Nyx (órdenes)
     oc = cfg["orders"]
     if oc["enabled"]:
         r.section(f"{oc['agent'].capitalize()} (órdenes por voz)")

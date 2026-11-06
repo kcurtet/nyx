@@ -1,6 +1,6 @@
 """`nyx look "pregunta"`: captura la pantalla y la entiende un modelo de visión local (lfm3-omni).
 
-Pensado para Trinity: "Trinity, mira mi pantalla, ¿qué error sale?" → `nyx look "¿qué error sale?"`.
+Pensado para Nyx: «Nyx, mira mi pantalla, ¿qué error sale?» → `nyx look "¿qué error sale?"`.
 Todo en local vía Ollama: la captura nunca sale del equipo.
 
 Capturas: spectacle (KDE) · grim (wlroots) · gnome-screenshot · maim/scrot (X11) · PIL (Windows).

@@ -1,4 +1,4 @@
-"""Órdenes por voz: "Trinity, …" va a la orquestadora (una sesión de pi) en vez de pegarse.
+"""Órdenes por voz: "Nyx, …" va a la orquestadora (una sesión de pi) en vez de pegarse.
 
 Dos formas de tenerla en marcha (backend):
   herdr: en su propio workspace de herdr — ves lo que hace y puede vigilar a tus agentes
@@ -24,13 +24,13 @@ from .commands import _fold
 from .config import STATE_DIR, log
 from .platform_env import clean_child_env
 
-AGENT_DIR = Path(__file__).resolve().parent / "trinity"
+AGENT_DIR = Path(__file__).resolve().parent / "nyx"
 
 
 def match_wake(text: str, wake_words: list[str]) -> str | None:
     """Si `text` empieza por una palabra de activación, devuelve la orden (sin ella); si no, None.
 
-    "Trinity, ve al repo jerga." → "Ve al repo jerga."   ·   "Trinity." → ""
+    "Nyx, ve al repo nyx." → "Ve al repo nyx."   ·   "Nyx." → ""
     """
     folded = _fold(text)
     for w in sorted(wake_words, key=len, reverse=True):
@@ -137,10 +137,10 @@ def choose_backend(cfg: dict) -> tuple[str | None, str]:
     want = cfg.get("backend", "auto")
     has_pi = shutil.which("pi") is not None
     if not has_pi:
-        return None, "Trinity no está disponible: falta pi. Instálalo para poder darme órdenes."
+        return None, "Nyx no está disponible: falta pi. Instálalo para poder darme órdenes."
     if want == "herdr" or (want == "auto" and herdr_available()):
         if not shutil.which("herdr"):
-            return None, "Trinity está configurada con herdr, pero herdr no está instalado."
+            return None, "Nyx está configurada con herdr, pero herdr no está instalado."
         return "herdr", ""
     return "pi", ""
 
@@ -348,7 +348,7 @@ class Orchestrator:
             self.backend.stop()
 
     def start_supervisor(self, every: float = 20.0) -> None:
-        """Arranca a Trinity y la vuelve a levantar si desaparece (con espera tras un fallo)."""
+        """Arranca a Nyx y la vuelve a levantar si desaparece (con espera tras un fallo)."""
 
         def loop():
             backoff = 0.0

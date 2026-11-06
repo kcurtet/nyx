@@ -87,7 +87,7 @@ def test_debug_de_vision_se_llama_nyx():
 
 
 def test_extension_de_voz_entorno_nyx():
-    ts = (Path(nyx.app.__file__).parent / "trinity" / "voice.ts").read_text(encoding="utf-8")
+    ts = (Path(nyx.app.__file__).parent / "nyx" / "voice.ts").read_text(encoding="utf-8")
     assert "NYX_BIN" in ts and "NYX_VOICE_DEBUG" in ts
     assert "JERGA_" not in ts  # sin variables viejas
     assert '"state", "nyx"' in ts and '"state", "jerga"' not in ts  # log en ~/.local/state/nyx

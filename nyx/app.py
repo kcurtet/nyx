@@ -20,7 +20,7 @@ Uso:
   nyx remind "texto" en <cuándo>  recordatorio one-shot (20m, 1h, 18:00; --list, --cancel N)
   nyx agent [restart]  arranca la orquestadora (herdr si está; si no, pi en segundo plano)
                      ("nyx trinity" sigue valiendo como alias silencioso)
-  nyx order "texto"   manda una orden a Trinity (igual que decir «Trinity, …»)
+  nyx order "texto"   manda una orden a Nyx (igual que decir «Nyx, …»)
   nyx doctor          comprueba que todo está listo en este equipo
   nyx keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
   nyx config          muestra la ruta del archivo de configuración
@@ -237,8 +237,8 @@ def run():
                 "dictation_key": cfg["hotkey"]["key"],
                 "read_key": cfg["tts"]["key"],
                 "orders": cfg["orders"]["agent"] if orch else None,
-                "trinity": ({"backend": orch.kind, "state": orch.status(max_age=5), "reason": orch.reason}
-                            if orch else None),
+                "nyx": ({"backend": orch.kind, "state": orch.status(max_age=5), "reason": orch.reason}
+                        if orch else None),
                 "session": ({"path": str(session["s"].path), "elapsed": session["s"].elapsed,
                              "kind": session["s"].kind} if session["s"] else None),
             })

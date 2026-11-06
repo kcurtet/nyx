@@ -1,8 +1,10 @@
 import json
 import os
+import re
 import stat
 import sys
 import time
+from pathlib import Path
 
 import pytest
 
@@ -76,3 +78,31 @@ def test_args_sin_herdr():
     args = o.pi_args_for(CFG, with_herdr=False)
     assert "--no-extensions" in args and not any("herdr" in a for a in args)
     assert args[-1].endswith("voice.ts") or "--model" in args
+
+
+def test_skill_apunta_al_directorio_nuevo():
+    # --skill al nuevo dir (nyx/nyx), no al viejo trinity: SKILL.md y voice.ts viven ahí
+    assert o.AGENT_DIR.name == "nyx" and (o.AGENT_DIR / "SKILL.md").is_file()
+    for args in (o.pi_args_for(CFG, with_herdr=False), o.pi_args_for({"isolated": False})):
+        skill = Path(args[args.index("--skill") + 1])
+        assert skill == o.AGENT_DIR and skill.name == "nyx"
+        assert str(o.AGENT_DIR / "voice.ts") in args
+
+
+# ------------------------------------------------------- la skill es de Nyx
+SKILL = (o.AGENT_DIR / "SKILL.md").read_text(encoding="utf-8")
+
+
+def test_la_skill_se_llama_nyx():
+    assert re.search(r"^name: nyx$", SKILL, re.MULTILINE)
+    assert "Eres **Nyx**" in SKILL
+
+
+def test_la_skill_no_ensena_comandos_muertos():
+    # s/jerga→nyx/ mecánico: nada de comandos, rutas o ejemplos con el nombre viejo
+    assert "jerga" not in SKILL and "trinity" not in SKILL.lower()
+
+
+def test_los_comandos_citados_empiezan_por_nyx():
+    citados = re.findall(r"`(nyx|jerga)\s", SKILL)
+    assert citados and set(citados) == {"nyx"}  # hay comandos y todos son `nyx …`

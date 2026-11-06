@@ -1,12 +1,12 @@
 /**
- * nyx · voz de Trinity (extensión de pi).
+ * nyx · voz de Nyx (extensión de pi).
  *
  * - Al empezar un turno (llega una orden nueva): `nyx hush`, calla lo que se estuviera leyendo.
  * - Al terminar: lee la respuesta final con `nyx say --brief`. nyx limpia el Markdown
  *   (tablas, código…) y DESPUÉS recorta por frases: "el resto lo tienes en el panel".
  * - Si el modelo falla (cuota, auth, red): lo dice en una frase clara.
  *
- * Se carga solo en la sesión de Trinity (`nyx agent` la arranca con -e).
+ * Se carga solo en la sesión de Nyx (`nyx agent` la arranca con -e).
  * Depuración: NYX_VOICE_DEBUG=1 escribe los eventos en ~/.local/state/nyx/voice.log
  */
 import { spawn } from "node:child_process";
@@ -80,7 +80,7 @@ export function answerOf(messages: Msg[] = []): string {
 }
 
 // El tipo ExtensionAPI lo aporta pi al cargar; aquí no hay dependencias.
-export default function trinityVoice(pi: any): void {
+export default function nyxVoice(pi: any): void {
 	let spokeThisTurn = false;
 	let lastError: Msg | undefined;
 	const say = (text: string, why: string) => {

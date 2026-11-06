@@ -27,7 +27,7 @@ class _CtlError(Exception):
 
 @dataclass(frozen=True)
 class Cuando:
-    """Cuándo dispara un recordatorio: argumento para systemd-run, frase para Trinity y momento exacto."""
+    """Cuándo dispara un recordatorio: argumento para systemd-run, frase para Nyx y momento exacto."""
 
     cuando_arg: str  # "--on-active=1200" / "--on-calendar=2026-11-09 18:00:00"
     humano: str  # «en 20 minutos» / «hoy a las 18:00»
@@ -210,7 +210,7 @@ def _crear(texto: str, cuando: str) -> int:
     if (c.dispara_en - ahora).total_seconds() > 3600:  # unidades transitorias: no sobreviven a un apagón
         print("ojo: si apagas el equipo, se pierde")
     if not is_running():  # el timer dispara igual, pero sin servicio no hay voz
-        print("Trinity no sonará: nyx está parado")
+        print("Nyx no sonará: nyx está parado")
     return EXIT_OK
 
 
