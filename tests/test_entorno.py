@@ -1,4 +1,4 @@
-"""Tarea 3 del plan 003: entorno nyx — alias jerga, NYX_*, socket nyx.sock y par uinput/autofiltro."""
+"""Tarea 3 del plan 003: entorno nyx — NYX_*, socket nyx.sock y par uinput/autofiltro."""
 from __future__ import annotations
 
 import importlib
@@ -17,73 +17,6 @@ import nyx.platform_env
 import nyx.vol
 from nyx.output import UINPUT_NAME, teclado_simulado
 
-AVISO = "jerga ahora es nyx"
-
-
-# ------------------------------------------------------------------ alias (D3)
-def test_alias_avisa_una_vez_por_stderr(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["/home/x/.local/bin/jerga", "toggle"])
-    nyx.app._aviso_alias()
-    assert capsys.readouterr().err.strip() == AVISO
-    assert (nyx.config.STATE_DIR / ".alias-avisado").exists()  # marker (STATE_DIR aislado por conftest)
-    nyx.app._aviso_alias()
-    assert capsys.readouterr().err == ""  # segunda vez: silencio
-
-
-def test_sin_alias_no_avisa_ni_marca(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["/home/x/.local/bin/nyx", "toggle"])
-    nyx.app._aviso_alias()
-    assert capsys.readouterr().err == ""
-    assert not (nyx.config.STATE_DIR / ".alias-avisado").exists()
-
-
-def test_alias_de_windows_por_entorno(tmp_path, monkeypatch, capsys):
-    # jerga.cmd llama a nyx.exe marcando NYX_ALIAS: argv[0] ya no delata el alias
-    monkeypatch.setattr(sys, "argv", ["C:\\tools\\nyx.exe", "toggle"])
-    monkeypatch.setenv("NYX_ALIAS", "jerga")
-    nyx.app._aviso_alias()
-    assert capsys.readouterr().err.strip() == AVISO
-
-
-def test_el_marker_no_borra_el_aviso_si_falla_la_escritura(tmp_path, monkeypatch, capsys):
-    # STATE_DIR sin permisos: se avisa igual (y se reintentará la próxima vez)
-    monkeypatch.setattr(sys, "argv", ["/home/x/.local/bin/jerga"])
-    monkeypatch.setattr(nyx.config, "STATE_DIR", Path("/proc/no-puedo-escribir-aqui"))
-    nyx.app._aviso_alias()
-    assert capsys.readouterr().err.strip() == AVISO
-
-
-def test_aviso_por_el_alias_con_estado_viejo_migra_y_avisa(tmp_path, monkeypatch, capsys):
-    """Hallazgo review 1: el aviso corría ANTES de migrate.run() y su marker creaba STATE_DIR
-    vacío → la migración de estado veía «conviven» y nunca ocurría. Ahora: migra Y avisa."""
-    home = tmp_path / "home"
-    if os.name == "nt":  # en Windows migrate mira APPDATA/LOCALAPPDATA (el fixture parchea sys.platform: os.name es el real)
-        cfg_vieja = home / "AppData" / "Roaming" / "jerga"
-        viejo = home / "AppData" / "Local" / "jerga"
-        nuevo = home / "AppData" / "Local" / "nyx"
-        monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
-        monkeypatch.setenv("LOCALAPPDATA", str(home / "AppData" / "Local"))
-    else:
-        cfg_vieja = home / ".config" / "jerga"
-        viejo = home / ".local" / "state" / "jerga"
-        nuevo = home / ".local" / "state" / "nyx"
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
-        monkeypatch.setenv("XDG_STATE_HOME", str(home / ".local" / "state"))
-    viejo.mkdir(parents=True)
-    cfg_vieja.mkdir(parents=True)
-    (cfg_vieja / "config.toml").write_text("[stt]\nmodel = \"small\"\n", encoding="utf-8")
-    (viejo / "jerga.log").write_text("log", encoding="utf-8")
-    monkeypatch.setattr(nyx.config, "docs_root", lambda: home / "Documents")  # migrate sin home inyectado
-    monkeypatch.setattr(nyx.config, "STATE_DIR", nuevo)  # como en la vida real
-    monkeypatch.setattr(nyx.vol, "main", lambda args: 0)  # subcomando inofensivo: llega a migrate y sale
-    monkeypatch.setattr(sys, "argv", ["C:\\tools\\nyx.exe", "vol"])
-    monkeypatch.setenv("NYX_ALIAS", "jerga")  # invocación por el alias (wrapper de Windows)
-    with pytest.raises(SystemExit):
-        nyx.app.main()
-    assert capsys.readouterr().err.strip() == AVISO  # el aviso sale…
-    assert not viejo.exists() and (nuevo / "nyx.log").exists()  # …y la migración ocurrió de verdad
-    assert (nuevo / ".alias-avisado").exists()  # el marker, dentro del estado ya migrado
-
 
 # ------------------------------------------------------------------ NYX_*
 def test_entorno_nyx_env_ready(monkeypatch):
@@ -96,10 +29,10 @@ def test_entorno_nyx_env_ready(monkeypatch):
 
 
 def test_entorno_hijo_limpio(monkeypatch):
-    for k in ("NYX_ENV_READY", "LD_PRELOAD", "NYX_ALIAS"):
+    for k in ("NYX_ENV_READY", "LD_PRELOAD"):
         monkeypatch.setenv(k, "1")
     child = nyx.platform_env.clean_child_env()
-    assert "NYX_ENV_READY" not in child and "LD_PRELOAD" not in child and "NYX_ALIAS" not in child
+    assert "NYX_ENV_READY" not in child and "LD_PRELOAD" not in child
 
 
 def test_key_debug_se_llama_nyx(monkeypatch):
@@ -124,7 +57,7 @@ def test_extension_de_voz_entorno_nyx():
     assert "NYX_BIN" in ts and "NYX_VOICE_DEBUG" in ts
     assert "JERGA_" not in ts  # sin variables viejas
     assert '"state", "nyx"' in ts and '"state", "jerga"' not in ts  # log en ~/.local/state/nyx
-    assert ts.count('"jerga"') == 1  # y jerga solo como fallback del binario (durante el alias)
+    assert '"jerga"' not in ts  # el fallback del binario se retiró junto al alias
 
 
 # ------------------------------------------------------- par uinput/autofiltro

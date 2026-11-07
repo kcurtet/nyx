@@ -10,7 +10,7 @@
  * Depuración: NYX_VOICE_DEBUG=1 escribe los eventos en ~/.local/state/nyx/voice.log
  */
 import { spawn } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -28,13 +28,7 @@ function debug(what: string): void {
 }
 
 function nyxBin(): string {
-	const env = process.env.NYX_BIN;
-	if (env) return env;
-	const bin = path.join(os.homedir(), ".local", "bin");
-	const nyx = path.join(bin, "nyx");
-	if (existsSync(nyx)) return nyx;
-	const jerga = path.join(bin, "jerga"); // alias de transición: aún sirve si nyx no está
-	return existsSync(jerga) ? jerga : "nyx";
+	return process.env.NYX_BIN ?? "nyx";
 }
 
 function run(args: string[], stdin?: string): void {

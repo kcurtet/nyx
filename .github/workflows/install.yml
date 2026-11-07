@@ -42,10 +42,6 @@ jobs:
           "$HOME/.local/bin/nyx" --version
           "$HOME/.local/share/nyx/venv/bin/python" -c "import importlib.util as u, nyx.app, nyx.transcribe, nyx.tts, nyx.tray, nyx.orders, nyx.session, faster_whisper, ptts, evdev; assert u.find_spec('pystray'), 'falta pystray'; print('imports OK')"
           for c in ffmpeg parec notify-send; do command -v "$c" >/dev/null && echo "✔ $c" || { echo "✘ falta $c"; exit 1; }; done
-      - name: Alias jerga (transición)
-        run: |
-          test -L "$HOME/.local/bin/jerga" && test "$(readlink "$HOME/.local/bin/jerga")" = nyx
-          "$HOME/.local/bin/jerga" --version  # avisa "jerga ahora es nyx" UNA vez por stderr y funciona igual
       - name: nyx doctor (informativo; sin micro ni teclado en CI)
         run: '"$HOME/.local/bin/nyx" doctor || true'
 
@@ -62,9 +58,6 @@ jobs:
         run: |
           $bin = (uv tool dir --bin).Trim()
           & "$bin\nyx.exe" --version
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-          if (-not (Test-Path "$bin\jerga.cmd")) { Write-Host "✘ falta el alias jerga.cmd"; exit 1 }
-          & "$bin\jerga.cmd" --version  # avisa "jerga ahora es nyx" UNA vez por stderr y funciona igual
           if ($LASTEXITCODE -ne 0) { exit 1 }
           & "$bin\nyx.exe" doctor
           exit 0

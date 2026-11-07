@@ -48,12 +48,11 @@ def test_el_servicio_viejo_se_retira_sin_borrarse():
     assert 'rm -f "$VIEJA_UNIT"' not in sh
 
 
-def test_venv_bin_y_alias():
+def test_venv_bin():
     sh = _sh()
     # venv en ~/.local/share/nyx (NYX_HOME manda; JERGA_HOME histórico cae como fallback)
     assert 'PREFIX="${NYX_HOME:-${JERGA_HOME:-$HOME/.local/share/nyx}}"' in sh
     assert 'ln -sf "$PREFIX/venv/bin/nyx" "$BIN/nyx"' in sh
-    assert 'ln -sfn nyx "$BIN/jerga"' in sh  # alias: mismo binario, aviso UNA vez en nyx
 
 
 def test_urls_del_repo_son_kcurtet_nyx():
@@ -62,11 +61,8 @@ def test_urls_del_repo_son_kcurtet_nyx():
         assert "kcurtet/jerga" not in texto
 
 
-def test_windows_alias_jerga_cmd():
+def test_windows_instala_el_paquete_nyx():
     ps1 = _ps1()
-    assert 'jerga.cmd' in ps1
-    assert 'set "NYX_ALIAS=jerga"' in ps1  # marca el aviso de una sola vez de nyx
-    assert '"%~dp0nyx.exe" %*' in ps1
     assert '"nyx$extra @ git+$Repo"' in ps1  # instala el paquete nyx
     assert '"nyx-gui.exe"' in ps1  # arranque automático
 
@@ -96,11 +92,10 @@ def test_el_mensaje_final_dice_nyx_no_trinity():
     assert "«Trinity" not in sh
 
 
-def test_ci_de_instalacion_comprueba_nyx_y_el_alias():
+def test_ci_de_instalacion_comprueba_nyx():
     yml = _yml()
     assert '"nyx/**"' in yml and '"jerga/**"' not in yml  # dispara con cambios en el paquete nyx
     assert '"$HOME/.local/bin/nyx" --version' in yml
-    assert '"$HOME/.local/bin/jerga" --version' in yml  # el alias también funciona
     assert '"$HOME/.local/share/nyx/venv/bin/python"' in yml
 
 

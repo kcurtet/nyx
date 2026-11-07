@@ -154,7 +154,6 @@ else
   "${PIP[@]}" --force-reinstall --no-deps "$SPEC" || die "falló reinstalando nyx"
 fi
 ln -sf "$PREFIX/venv/bin/nyx" "$BIN/nyx"
-ln -sfn nyx "$BIN/jerga"  # alias de transición: mismo binario; nyx avisa del cambio UNA vez
 
 # ------------------------------------------------------------- servicio
 if [ "$SERVICE" = 1 ] && command -v systemctl >/dev/null && systemctl --user show-environment >/dev/null 2>&1; then
@@ -200,6 +199,5 @@ echo "  Leer en voz alta: selecciona texto y pulsa Ctrl+0 (o di «léeme esto»)
 command -v ollama >/dev/null && ! ollama list 2>/dev/null | grep -q lfm3-omni && \
   echo "  Opcional, para nyx look (ver la pantalla): ollama pull lfm3-omni"
 command -v herdr >/dev/null && echo "  Orquestadora por voz: nyx agent  (y luego «Nyx, …»)"
-echo "  El alias jerga sigue funcionando (nyx te lo recuerda una vez); se retirará en una versión futura."
 [ -n "${NEED_RELOGIN:-}" ] && echo "  ${c_y}Cierra sesión y vuelve a entrar antes de usarlo (grupo input).${c_0}"
 true

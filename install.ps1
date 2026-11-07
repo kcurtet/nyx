@@ -74,15 +74,6 @@ Remove-Item (Join-Path ([Environment]::GetFolderPath("Startup")) "jerga.lnk") -E
 $binDir = (uv tool dir --bin).Trim()
 $gui = Join-Path $binDir "nyx-gui.exe"
 
-# Alias de transición: jerga.cmd llama a nyx.exe marcando NYX_ALIAS para que nyx avise
-# del cambio de nombre UNA sola vez (spec 003, D3). Se retirará en una versión futura.
-$alias = Join-Path $binDir "jerga.cmd"
-@'
-@echo off
-set "NYX_ALIAS=jerga"
-"%~dp0nyx.exe" %*
-'@ -replace "`n", "`r`n" | Set-Content -Path $alias -Encoding ascii
-
 if (-not $NoStartup) {
     Step "Arranque automático con Windows"
     $sh = (New-Object -ComObject WScript.Shell).CreateShortcut($Startup)
@@ -103,6 +94,5 @@ Write-Host "  Configuracion:        nyx config"
 Write-Host "  Log:                  %LOCALAPPDATA%\nyx\nyx.log"
 Write-Host "  Uso: mantén Ctrl derecho, habla y suelta. La 1a vez descarga el modelo (~1.6 GB)."
 Write-Host "  Leer en voz alta: selecciona texto y pulsa Ctrl+0."
-Write-Host "  El alias jerga sigue funcionando (jerga.cmd); se retirará en una versión futura."
 & (Join-Path $binDir "nyx.exe") doctor
 $global:LASTEXITCODE = 0  # el doctor es informativo: no fallar la instalación por un aviso

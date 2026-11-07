@@ -16,8 +16,6 @@ Mantén **Ctrl derecho** → habla → suelta. Todo en local, con Whisper en tu 
  ● haz un git push a main y levanta el docker compose
 ```
 
-> Antes se llamaba `jerga`: el alias sigue funcionando un tiempo y te avisa la primera vez.
-
 ## Por qué
 
 Los dictados normales destrozan el español técnico: *"haz un guit pus"*, *"levanta el dóquer con pose"*. nyx lo ataca en capas:

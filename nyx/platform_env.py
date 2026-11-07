@@ -53,9 +53,8 @@ def prepare() -> None:
 
 
 def clean_child_env() -> dict:
-    """Entorno para subprocesos (wl-copy, xclip…) sin nuestro LD_PRELOAD ni el aviso del alias."""
+    """Entorno para subprocesos (wl-copy, xclip…) sin nuestro LD_PRELOAD."""
     env = dict(os.environ)
     env.pop("LD_PRELOAD", None)
     env.pop(_FLAG, None)
-    env.pop("NYX_ALIAS", None)
     return env

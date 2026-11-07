@@ -25,12 +25,9 @@ Uso:
   nyx keys            muestra el nombre de las teclas que pulses (para elegir la tecla)
   nyx config          muestra la ruta del archivo de configuración
   nyx tray            icono en la bandeja del sistema (lo arranca el servicio; [tray] enabled)
-
-El alias `jerga` (nombre anterior) sigue funcionando y te lo recuerda una sola vez.
 """
 from __future__ import annotations
 
-import os
 import signal
 import sys
 import threading
@@ -406,26 +403,6 @@ def _utf8_console() -> None:
                 pass
 
 
-def _aviso_alias() -> None:
-    """`jerga` es un alias de transición de `nyx` (spec 003, D3): una línea por stderr, UNA sola vez.
-
-    Se detecta por argv[0] (el symlink ~/.local/bin/jerga) o porque el wrapper de Windows
-    (jerga.cmd) exporta NYX_ALIAS=jerga. El marker vive en STATE_DIR: si no se puede escribir,
-    se avisa igual (y se reintentará la próxima vez)."""
-    invocado = Path(sys.argv[0]).name.lower() if sys.argv[0] else ""
-    if "jerga" not in invocado and os.environ.get("NYX_ALIAS", "").lower() != "jerga":
-        return
-    marker = config.STATE_DIR / ".alias-avisado"
-    if marker.exists():
-        return
-    try:
-        config.STATE_DIR.mkdir(parents=True, exist_ok=True)
-        marker.touch()
-    except OSError:
-        pass
-    print("jerga ahora es nyx", file=sys.stderr)
-
-
 def main():
     _utf8_console()
     args = sys.argv[1:]
@@ -440,9 +417,6 @@ def main():
 
     for msg in migrate.run():  # rutas viejas de jerga → nyx, antes de tocar la config
         log("[migración]", msg)
-    # El aviso va DESPUÉS de migrar: su marker crea STATE_DIR y antes lo creaba vacío,
-    # con lo que la migración veía «conviven» y el estado viejo no se movía nunca (review 003).
-    _aviso_alias()
     if cmd == "look":
         from .vision import main as look_main
 
