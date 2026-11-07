@@ -57,19 +57,29 @@ def test_aviso_por_el_alias_con_estado_viejo_migra_y_avisa(tmp_path, monkeypatch
     """Hallazgo review 1: el aviso corría ANTES de migrate.run() y su marker creaba STATE_DIR
     vacío → la migración de estado veía «conviven» y nunca ocurría. Ahora: migra Y avisa."""
     home = tmp_path / "home"
-    viejo = home / ".local" / "state" / "jerga"
+    if os.name == "nt":  # en Windows migrate mira APPDATA/LOCALAPPDATA (el fixture parchea sys.platform: os.name es el real)
+        cfg_vieja = home / "AppData" / "Roaming" / "jerga"
+        viejo = home / "AppData" / "Local" / "jerga"
+        nuevo = home / "AppData" / "Local" / "nyx"
+        monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+        monkeypatch.setenv("LOCALAPPDATA", str(home / "AppData" / "Local"))
+    else:
+        cfg_vieja = home / ".config" / "jerga"
+        viejo = home / ".local" / "state" / "jerga"
+        nuevo = home / ".local" / "state" / "nyx"
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+        monkeypatch.setenv("XDG_STATE_HOME", str(home / ".local" / "state"))
     viejo.mkdir(parents=True)
+    cfg_vieja.mkdir(parents=True)
+    (cfg_vieja / "config.toml").write_text("[stt]\nmodel = \"small\"\n", encoding="utf-8")
     (viejo / "jerga.log").write_text("log", encoding="utf-8")
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
-    monkeypatch.setenv("XDG_STATE_HOME", str(home / ".local" / "state"))
     monkeypatch.setattr(nyx.config, "docs_root", lambda: home / "Documents")  # migrate sin home inyectado
-    monkeypatch.setattr(nyx.config, "STATE_DIR", home / ".local" / "state" / "nyx")  # como en la vida real
+    monkeypatch.setattr(nyx.config, "STATE_DIR", nuevo)  # como en la vida real
     monkeypatch.setattr(nyx.vol, "main", lambda args: 0)  # subcomando inofensivo: llega a migrate y sale
     monkeypatch.setattr(sys, "argv", ["C:\\tools\\nyx.exe", "vol"])
     monkeypatch.setenv("NYX_ALIAS", "jerga")  # invocación por el alias (wrapper de Windows)
     with pytest.raises(SystemExit):
         nyx.app.main()
-    nuevo = home / ".local" / "state" / "nyx"
     assert capsys.readouterr().err.strip() == AVISO  # el aviso sale…
     assert not viejo.exists() and (nuevo / "nyx.log").exists()  # …y la migración ocurrió de verdad
     assert (nuevo / ".alias-avisado").exists()  # el marker, dentro del estado ya migrado
