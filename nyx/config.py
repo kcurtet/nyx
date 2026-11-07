@@ -118,7 +118,7 @@ DEFAULTS: dict = {
         "enabled": True,
         # Si el dictado empieza por una de estas palabras, es una orden para la orquestadora.
         "wake_words": ["nyx"],
-        "agent": "nyx",  # nombre del agente en herdr
+        "agent": "nyx-agent",  # nombre del agente en herdr (y de su workspace)
         "model": "",  # modelo de pi para Nyx ("" = el que uses por defecto)
         "debug": False,  # log de la extensión de voz en ~/.local/state/nyx/voice.log
         # auto: herdr si está en marcha (paneles visibles); si no, pi en segundo plano; sin pi, no disponible.

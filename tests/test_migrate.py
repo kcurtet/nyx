@@ -65,15 +65,15 @@ def test_migracion_completa(tmp_path):
     with open(new_cfg / "config.toml", "rb") as f:
         data = tomllib.load(f)
     assert data["orders"]["wake_words"] == ["nyx"]
-    assert data["orders"]["agent"] == "nyx"
+    assert data["orders"]["agent"] == "nyx-agent"
     assert data["record"]["dir"] == "/home/kx/Documentos/nyx"
     assert data["notes"]["dirs"] == ["/home/kx/Documentos/nyx/notas"]
     assert data["stt"]["model"] == "small"  # lo demás, intacto
     # estado: renombrado, con las piezas de trinity/jerga dentro
     assert not (h / ".local" / "state" / "jerga").exists()
     st = h / ".local" / "state" / "nyx"
-    assert (st / "nyx-sessions" / "sesion-1.json").read_text(encoding="utf-8") == "{}"
-    assert (st / "nyx-pi.log").read_text(encoding="utf-8") == "pi"
+    assert (st / "nyx-agent-sessions" / "sesion-1.json").read_text(encoding="utf-8") == "{}"
+    assert (st / "nyx-agent-pi.log").read_text(encoding="utf-8") == "pi"
     assert (st / "nyx.log").read_text(encoding="utf-8") == "log"
     # notas: renombradas con los datos dentro
     assert not (h / "Documents" / "jerga").exists()
@@ -129,7 +129,7 @@ def test_wake_trini_y_otras_palabras(tmp_path):
     with open(h / ".config" / "nyx" / "config.toml", "rb") as f:
         data = tomllib.load(f)
     assert data["orders"]["wake_words"] == ["nyx", "jefe"]  # las otras palabras sobreviven
-    assert data["orders"]["agent"] == "nyx"
+    assert data["orders"]["agent"] == "nyx-agent"
 
 
 def test_config_vacia_se_migra_igual(tmp_path):
@@ -169,7 +169,7 @@ def test_rutas_de_windows(monkeypatch, tmp_path):
     assert len(msgs) == 3  # config movida + config.toml reescrito + estado
     with open(h / "AppData" / "Roaming" / "nyx" / "config.toml", "rb") as f:
         assert tomllib.load(f)["orders"]["wake_words"] == ["nyx"]
-    assert (h / "AppData" / "Local" / "nyx" / "nyx-pi.log").exists()
+    assert (h / "AppData" / "Local" / "nyx" / "nyx-agent-pi.log").exists()
 
 
 def test_error_de_movimiento_avisa_sin_perder_nada(monkeypatch, tmp_path):

@@ -24,6 +24,7 @@ from . import config
 
 # Lo que se renombra DENTRO del directorio de estado una vez movido.
 _STATE_RENAMES = (("trinity-sessions", "nyx-sessions"), ("trinity-pi.log", "nyx-pi.log"),
+                   ("nyx-sessions", "nyx-agent-sessions"), ("nyx-pi.log", "nyx-agent-pi.log"),
                   ("jerga.log", "nyx.log"))
 
 
@@ -110,7 +111,7 @@ def _rewrite_config(path: Path) -> bool:
 def _rewrite_toml(text: str) -> str:
     """Toque quirúrgico línea a línea (conserva comentarios y formato del usuario).
 
-    Solo [orders] wake_words/agent (trinity|trini → nyx, el resto de palabras
+    Solo [orders] wake_words (trinity|trini → nyx) y agent (→ nyx-agent; el resto
     sobrevive; tener «trinity» y «trini» a la vez dejaría "nyx" repetida, que es
     inofensiva) y las claves de rutas [record] dir / [notes] dirs (jerga → nyx).
     """
@@ -132,8 +133,10 @@ def _rewrite_toml(text: str) -> str:
 
 
 def _rewrite_line(section: str, key: str, line: str) -> str:
-    if section == "orders" and key in ("wake_words", "agent"):
+    if section == "orders" and key == "wake_words":
         return re.sub(r"""(?i)(["'])(trinity|trini)\1""", r"\1nyx\1", line)
+    if section == "orders" and key == "agent":
+        return re.sub(r"""(?i)(["'])(trinity|trini)\1""", r"\1nyx-agent\1", line)
     if (section, key) in (("record", "dir"), ("notes", "dirs")):
         return re.sub(r"""(["'])([^"']*)\1""",
                       lambda m: f"{m[1]}{m[2].replace('jerga', 'nyx')}{m[1]}", line)
