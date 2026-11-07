@@ -36,8 +36,20 @@ def run(home: Path | None = None) -> list[str]:
     APPDATA, igual que config.py).
     """
     msgs: list[str] = []
-    for label, old, new in _pairs(home):
+    pares = _pairs(home)
+    for label, old, new in pares:
         msgs += _migrate(label, old, new)
+    # renombres internos también cuando el directorio ya estaba migrado (upgrade nyx→nyx-agent)
+    estado = next((new for label, _old, new in pares if label == "estado"), None)
+    if estado is not None and estado.is_dir():
+        for src, dst in _STATE_RENAMES:
+            s, d = estado / src, estado / dst
+            if s.exists() and not d.exists():
+                try:
+                    s.rename(d)
+                    msgs.append(f"estado: {s.name} → {d.name}")
+                except OSError:
+                    pass
     return msgs
 
 

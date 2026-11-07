@@ -209,3 +209,19 @@ def test_la_migracion_real_nunca_toca_el_home_del_runner():
         assert label in ("config", "estado", "notas")
         assert "jerga" in old.name and new.name == "nyx"
         assert old.parent == new.parent
+
+
+def test_renombres_internos_tambien_con_estado_ya_migrado(tmp_path):
+    """Upgrade de nyx→nyx-agent: el estado ya está en la ruta nueva pero con nombres internos viejos."""
+    h = _home(tmp_path)
+    st = h / ".local" / "state" / "nyx"
+    (st / "nyx-sessions").mkdir(parents=True)
+    (st / "nyx-sessions" / "ses.json").write_text("{}", encoding="utf-8")
+    (st / "nyx-pi.log").write_text("pi", encoding="utf-8")
+
+    msgs = migrate.run(home=h)
+
+    assert (st / "nyx-agent-sessions" / "ses.json").exists()
+    assert (st / "nyx-agent-pi.log").exists()
+    assert not (st / "nyx-sessions").exists()
+    assert any("nyx-agent-sessions" in m for m in msgs)
