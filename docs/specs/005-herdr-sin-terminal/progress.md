@@ -3,3 +3,13 @@
 ## Baseline
 
 - `uv run pytest -q tests` → 186 passed (rama hd/impl-005, commit 5698ee0).
+
+## Task 1: complete
+
+- Commit e892988. Tests: `uv run pytest tests/test_orders.py -k herdr_server_running -v` → primero FAIL (AttributeError, como el plan), luego PASS; suite 186→188 passed.
+- `uvx ruff check .` limpio.
+
+## Task 2: complete
+
+- Commit (ver abajo). Tests: `-k "error_json or servidor_caido"` → FAIL (rc 0; 'unknown' != None) → PASS; suite 190 passed.
+- Ruling: el código literal del plan para `test_herdr_status_none_con_servidor_caido` fakeaba `_herdr` con rc 1, que pasa igual antes que después (no puede fallar); su propio comentario y su Expected dicen que el bug es rc 0 + error JSON → "unknown". Reescrito para pasar por el `_herdr` REAL (subprocess.run fakeado, rc 0 + cuerpo de error), que hoy devuelve "unknown" y tras D4 None. Coste si me equivoco: el test de regresión queda más acoplado a la implementación real de `_herdr` (menos aislado), pero es justo lo que D4 repara.

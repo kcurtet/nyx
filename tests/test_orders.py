@@ -108,6 +108,38 @@ def test_los_comandos_citados_empiezan_por_nyx():
     assert citados and set(citados) == {"nyx"}  # hay comandos y todos son `nyx …`
 
 
+def test_herdr_error_json_es_fallo(monkeypatch):  # A5: rc 0 + {"error":…} → rc efectivo != 0
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/herdr")
+
+    class R:
+        def __init__(self, stdout):
+            self.returncode, self.stdout, self.stderr = 0, stdout, ""
+
+    def fake_run(stdout):
+        return lambda cmd, **kw: R(stdout)
+
+    monkeypatch.setattr(o.subprocess, "run", fake_run('{"id":"cli:agent:get","error":{"code":"server_not_running"}}'))
+    rc, data, _ = o._herdr("agent", "get", "nyx-agent")
+    assert rc == 1 and data["error"]["code"] == "server_not_running"  # rc falla, data se conserva
+    monkeypatch.setattr(o.subprocess, "run", fake_run('{"id":"x","result":{}}'))
+    rc, data, _ = o._herdr("agent", "get", "nyx-agent")
+    assert rc == 0 and data == {"id": "x", "result": {}}  # sin "error": rc intacto
+
+
+def test_herdr_status_none_con_servidor_caido(monkeypatch):
+    # D4 de punta a punta: rc 0 + error JSON (herdr 0.9.3) → status() debe dar None, no "unknown"
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/herdr")
+
+    class R:
+        returncode = 0
+        stdout = '{"id":"x","error":{"code":"server_not_running"}}'
+        stderr = ""
+
+    monkeypatch.setattr(o.subprocess, "run", lambda cmd, **kw: R())
+    b = o.HerdrBackend({**CFG})
+    assert b.status() is None
+
+
 # ------------------------------------------- herdr disponible y bajo demanda (005)
 def test_herdr_available_mira_el_servidor_no_el_rc(monkeypatch):
     monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/herdr")

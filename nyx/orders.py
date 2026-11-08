@@ -54,7 +54,10 @@ def _herdr(*args: str, timeout: float = 10) -> tuple[int, dict | None, str]:
         data = json.loads(r.stdout) if r.stdout.strip().startswith("{") else None
     except json.JSONDecodeError:
         data = None
-    return r.returncode, data, out.strip()
+    rcode = r.returncode
+    if data and "error" in data:
+        rcode = 1  # herdr 0.9.3: rc 0 con cuerpo {"error":…} es un fallo encubierto (D4); data se conserva
+    return rcode, data, out.strip()
 
 
 def _pi_agent_dir() -> Path:
