@@ -15,18 +15,33 @@ CFG = {**DEFAULTS["orders"], "isolated": True}
 
 
 def test_eleccion_de_backend(monkeypatch):
-    has = {"pi": True, "herdr": True}
+    has = {"pi": True, "herdr": True, "ensure": True}
     monkeypatch.setattr(o.shutil, "which", lambda c: f"/usr/bin/{c}" if has.get(c) else None)
-    monkeypatch.setattr(o, "herdr_available", lambda: has["herdr"])
+    monkeypatch.setattr(o, "_ensure_herdr_server", lambda timeout=8.0: (has["ensure"], ""))
     assert o.choose_backend(CFG) == ("herdr", "")
+    has["ensure"] = False  # auto: ensure falla → pi, sin sermón
+    assert o.choose_backend(CFG) == ("pi", "")
     has["herdr"] = False
-    assert o.choose_backend(CFG) == ("pi", "")  # sin herdr: pi en segundo plano
+    assert o.choose_backend(CFG) == ("pi", "")
     has["pi"] = False
-    kind, why = o.choose_backend(CFG)
-    assert kind is None and "falta pi" in why  # sin pi: error claro
-    has.update(pi=True, herdr=False)
+    kind, why = o.choose_backend(CFG)  # pi primero: sin tocar herdr en una máquina sin pi
+    assert kind is None and "falta pi" in why
+
+
+def test_backend_herdr_explicito_sin_fallback(monkeypatch):  # A2
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/c")
+    monkeypatch.setattr(o, "_ensure_herdr_server", lambda timeout=8.0: (False, "herdr server no responde"))
     kind, why = o.choose_backend({**CFG, "backend": "herdr"})
-    assert kind is None and "herdr no está instalado" in why
+    assert kind is None and "arrancar herdr" in why  # error claro, sin caer a pi
+    # y sin memoizar: el siguiente pick (supervisor) reintenta el ensure
+    monkeypatch.setattr(o, "_ensure_herdr_server", lambda timeout=8.0: (True, ""))
+    assert o.choose_backend({**CFG, "backend": "herdr"}) == ("herdr", "")
+
+
+def test_backend_herdr_sin_instalar(monkeypatch):
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/pi" if c == "pi" else None)
+    kind, why = o.choose_backend({**CFG, "backend": "herdr"})
+    assert kind is None and "no está instalado" in why
 
 
 def test_orquestador_sin_pi_dice_por_que(monkeypatch):

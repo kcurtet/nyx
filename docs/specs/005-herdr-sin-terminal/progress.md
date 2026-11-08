@@ -20,3 +20,8 @@
 - `uvx ruff check .` limpio. Sin spawn real en ningún test (D3b): Popen/_herdr_server_running/time.* fakeados.
 - Nota: al anclar la edición de T2 borré sin querer `test_los_comandos_citados_empiezan_por_nyx`; restaurado y commit de T2 amndado (sin push, rama propia). Suite re-cuentada: 190 tras T2.
 - Desviación menor vs plan: assert del comando spawn comparado como lista (`[["/usr/bin/herdr", "server"]]`) porque Popen recibe la lista; el plan lo escribía como tupla. Mismo contrato.
+
+## Task 4: complete
+
+- Commit (siguiente hash). Tests: `-k "eleccion or explicito or sin_instalar"` → eleccion y explicito FAIL (choose_backend ignora el ensure falso, como el plan), sin_instalar ya PASABA (la rama "no instalado" existía: es test de regresión, no comportamiento nuevo). Tras implementar: 3 PASS; suite 195 passed, ruff limpio.
+- Desviación menor: en la fase roja, `test_eleccion_de_backend` alcanzó `herdr_available()` REAL (FileNotFoundError en `/usr/bin/herdr` falso). Solo lectura (`status --json`), nunca spawn; desaparece al implementar.

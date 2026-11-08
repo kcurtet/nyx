@@ -5,7 +5,8 @@ Dos formas de tenerla en marcha (backend):
          (pi-herdr en modo global).
   pi:    sin herdr — pi en segundo plano (`pi --mode rpc`) gestionado por el servicio de nyx.
          Mismas capacidades salvo los paneles y los agentes de herdr.
-auto (por defecto): herdr si está instalado y en marcha; si no, pi; sin pi → no disponible.
+auto (por defecto): herdr si está instalado (nyx arranca su servidor si hace falta);
+si no puede, pi; sin pi → no disponible.
 
 El servicio la arranca solo y la vuelve a levantar si se cae (Supervisor).
 """
@@ -199,15 +200,26 @@ def _ensure_herdr_server(timeout: float = 8.0) -> tuple[bool, str]:
 
 
 def choose_backend(cfg: dict) -> tuple[str | None, str]:
-    """(backend, motivo). backend None = no disponible; el motivo se dice en voz alta."""
+    """(backend, motivo). backend None = no disponible; el motivo se dice en voz alta.
+
+    pi primero (HerdrBackend ejecuta pi como agente): sin pi no se toca herdr.
+    want="herdr": arranca el servidor y sin él, error claro — SIN caer a pi.
+    want="auto": herdr instalado → arranca el servidor; si no puede, pi en segundo plano.
+    Sin memoizar fallos: el supervisor reintenta en su próximo ciclo.
+    """
     want = cfg.get("backend", "auto")
-    has_pi = shutil.which("pi") is not None
-    if not has_pi:
+    if not shutil.which("pi"):
         return None, "Nyx no está disponible: falta pi. Instálalo para poder darme órdenes."
-    if want == "herdr" or (want == "auto" and herdr_available()):
+    if want == "herdr":
         if not shutil.which("herdr"):
             return None, "Nyx está configurada con herdr, pero herdr no está instalado."
+        ok, why = _ensure_herdr_server()
+        if not ok:
+            return None, f"Nyx no está disponible: no he podido arrancar herdr ({why})."
         return "herdr", ""
+    if want == "auto" and shutil.which("herdr"):
+        ok, _ = _ensure_herdr_server()
+        return ("herdr", "") if ok else ("pi", "")
     return "pi", ""
 
 

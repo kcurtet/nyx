@@ -121,7 +121,7 @@ DEFAULTS: dict = {
         "agent": "nyx-agent",  # nombre del agente en herdr (y de su workspace)
         "model": "",  # modelo de pi para Nyx ("" = el que uses por defecto)
         "debug": False,  # log de la extensión de voz en ~/.local/state/nyx/voice.log
-        # auto: herdr si está en marcha (paneles visibles); si no, pi en segundo plano; sin pi, no disponible.
+        # auto: herdr (nyx arranca su servidor si hace falta); si no puede, pi en segundo plano; sin pi, no disponible.
         "backend": "auto",
         "autostart": True,  # el servicio la arranca y la vuelve a levantar si se cae
         # Extensiones de pi extra para Nyx (nombre de paquete instalado con `pi install`, o ruta).
