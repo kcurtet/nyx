@@ -156,3 +156,54 @@ def test_herdr_server_running_fallback_textual(monkeypatch):  # A8: herdr viejo 
     assert o._herdr_server_running() is True
     monkeypatch.setattr(o, "_herdr", lambda *a, timeout=10: (0, None, "server:\n  status: not running\n"))
     assert o._herdr_server_running() is False
+
+
+class _FakeProc:  # proceso herdr server "lanzado": vivo y sin esperar
+    def poll(self):
+        return None
+
+    def wait(self, timeout=None):
+        return 0
+
+
+def _reloj_rapido():
+    """monotonic() que avanza 1 s por llamada: el bucle termina solo por deadline, no por intentos."""
+    t = [0.0]
+
+    def now():
+        t[0] += 1.0
+        return t[0]
+
+    return now
+
+
+def test_ensure_no_arranca_si_ya_running(monkeypatch):  # A3: cero procesos nuevos
+    spawns = []
+    monkeypatch.setattr(o, "_herdr_server_running", lambda: True)
+    monkeypatch.setattr(o.subprocess, "Popen", lambda cmd, **k: spawns.append(cmd) or _FakeProc())
+    ok, why = o._ensure_herdr_server()
+    assert ok and not spawns
+
+
+def test_ensure_arranca_y_espera_running(monkeypatch, tmp_path):
+    state = {"running": False, "spawns": []}
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/herdr")
+    monkeypatch.setattr(o, "_herdr_server_running", lambda: state["running"])
+    monkeypatch.setattr(o.time, "sleep", lambda s: state.__setitem__("running", True))
+    monkeypatch.setattr(o.subprocess, "Popen", lambda cmd, **k: state["spawns"].append(cmd) or _FakeProc())
+    monkeypatch.setattr(o, "STATE_DIR", tmp_path)
+    monkeypatch.setattr(o, "_SERVER_STARTED_BY_NYX", False)
+    ok, why = o._ensure_herdr_server()
+    assert ok and state["spawns"] == [["/usr/bin/herdr", "server"]]
+    assert o._SERVER_STARTED_BY_NYX  # lo lanzó nyx: lo cuenta el doctor (D5)
+    assert (tmp_path / "herdr-server.log").exists()  # el log del server vive bajo STATE_DIR
+
+
+def test_ensure_agota_el_plazo_sin_running(monkeypatch):  # A2 (parte del mecanismo)
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/herdr")
+    monkeypatch.setattr(o, "_herdr_server_running", lambda: False)
+    monkeypatch.setattr(o.subprocess, "Popen", lambda cmd, **k: _FakeProc())
+    monkeypatch.setattr(o.time, "sleep", lambda s: None)  # sin dormir: corta el deadline wall-clock
+    monkeypatch.setattr(o.time, "monotonic", _reloj_rapido())
+    ok, why = o._ensure_herdr_server()
+    assert not ok and why

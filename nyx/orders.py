@@ -164,6 +164,40 @@ def herdr_available() -> bool:
     return shutil.which("herdr") is not None and _herdr_server_running()
 
 
+_SERVER_STARTED_BY_NYX = False  # True si el último arranque del server lo hizo nyx (lo cuenta doctor, D5)
+
+
+def _ensure_herdr_server(timeout: float = 8.0) -> tuple[bool, str]:
+    """Arranca `herdr server` headless si hace falta y espera (deadline wall-clock) a que responda.
+
+    (True, "") si el servidor acaba running; (False, motivo) si no. Cada sondeo es
+    `_herdr_server_running()` (status --json, timeout propio de 2 s): un herdr colgado no
+    puede estirar el plazo. Si otro proceso gana la carrera y el nuestro muere con
+    "already running", el bucle lo absorbe: verá running y no habrá duplicados.
+    """
+    global _SERVER_STARTED_BY_NYX
+    if _herdr_server_running():
+        return True, ""
+    exe = shutil.which("herdr")
+    if not exe:
+        return False, "herdr no está instalado"
+    try:
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        with open(STATE_DIR / "herdr-server.log", "ab") as logf:  # append: sobrevive a reinicios (D6)
+            subprocess.Popen([exe, "server"], stdin=subprocess.DEVNULL, stdout=logf, stderr=logf,
+                             env=clean_child_env(), start_new_session=os.name == "posix")
+    except OSError as e:
+        return False, f"no pude lanzar herdr server: {e}"
+    _SERVER_STARTED_BY_NYX = True
+    log(f"[orden] herdr server lanzado por nyx (log: {STATE_DIR / 'herdr-server.log'})")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _herdr_server_running():
+            return True, ""
+        time.sleep(0.25)
+    return False, "herdr server no responde tras arrancarlo"
+
+
 def choose_backend(cfg: dict) -> tuple[str | None, str]:
     """(backend, motivo). backend None = no disponible; el motivo se dice en voz alta."""
     want = cfg.get("backend", "auto")
