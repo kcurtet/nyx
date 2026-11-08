@@ -106,3 +106,21 @@ def test_la_skill_no_ensena_comandos_muertos():
 def test_los_comandos_citados_empiezan_por_nyx():
     citados = re.findall(r"`(nyx|jerga)\s", SKILL)
     assert citados and set(citados) == {"nyx"}  # hay comandos y todos son `nyx …`
+
+
+# ------------------------------------------- herdr disponible y bajo demanda (005)
+def test_herdr_available_mira_el_servidor_no_el_rc(monkeypatch):
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/herdr")
+    # rc 0 pero servidor parado: hoy herdr_available() devuelve True (bug)
+    monkeypatch.setattr(o, "_herdr", lambda *a, timeout=10: (0, {"server": {"running": False}}, ""))
+    assert o._herdr_server_running() is False
+    monkeypatch.setattr(o, "_herdr", lambda *a, timeout=10: (0, {"server": {"running": True}}, ""))
+    assert o._herdr_server_running() is True
+    assert o.herdr_available() is True
+
+
+def test_herdr_server_running_fallback_textual(monkeypatch):  # A8: herdr viejo sin --json
+    monkeypatch.setattr(o, "_herdr", lambda *a, timeout=10: (0, None, "client:\n  v\n\nserver:\n  status: running\n"))
+    assert o._herdr_server_running() is True
+    monkeypatch.setattr(o, "_herdr", lambda *a, timeout=10: (0, None, "server:\n  status: not running\n"))
+    assert o._herdr_server_running() is False

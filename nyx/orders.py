@@ -134,8 +134,31 @@ def pi_args_for(cfg: dict, with_herdr: bool = True) -> list[str]:
     return args
 
 
+def _herdr_server_running() -> bool:
+    """True solo si `herdr status --json` dice que el SERVER corre (D1: `herdr status` sale rc 0
+    aunque esté parado). rc != 0, excepción o timeout → False. Con rc 0 y stdout no-JSON
+    (herdr viejo sin --json), fallback textual: `status: running` bajo la sección server."""
+    code, data, out = _herdr("status", "--json", timeout=2)
+    if code != 0:
+        return False
+    server = (data or {}).get("server") if isinstance(data, dict) else None
+    if isinstance(server, dict) and server.get("running") is True:
+        return True
+    en_server = False
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        if line.startswith("server:"):
+            en_server = True
+        elif not line[0].isspace():  # otra sección de primer nivel
+            en_server = False
+        elif en_server and line.strip() == "status: running":
+            return True
+    return False
+
+
 def herdr_available() -> bool:
-    return shutil.which("herdr") is not None and _herdr("status")[0] == 0
+    return shutil.which("herdr") is not None and _herdr_server_running()
 
 
 def choose_backend(cfg: dict) -> tuple[str | None, str]:
