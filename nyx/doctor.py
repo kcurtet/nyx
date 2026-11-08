@@ -61,6 +61,33 @@ def _typelib(name: str) -> bool:
     return any(Path(d, name).exists() for d in dirs)
 
 
+def _doctor_orders(r: Report, oc: dict) -> None:
+    """Sección «Nyx (órdenes por voz)» — aparte para poder testearla sin levantar todo el doctor."""
+    from . import orders as o
+    from .orders import Orchestrator, _ext_file, _pi_herdr_path, choose_backend
+
+    kind, reason = choose_backend(oc)
+    if kind is None:
+        r.warn("no disponible", reason)
+        return
+    if kind == "pi":
+        r.ok("pi en segundo plano (sin herdr)", "funciona igual, pero sin paneles ni avisos de tus agentes de herdr")
+        return
+    r.ok("herdr + pi", "en su propio workspace; vigila a tus agentes con pi-herdr")
+    if o._SERVER_STARTED_BY_NYX:  # choose_backend puede arrancar el server como efecto colateral (D5)
+        r.ok("herdr server arrancado por nyx", "estará en marcha aunque cierres todas las terminales")
+    pkg = _pi_herdr_path(oc)  # la misma ruta que usa la orquestadora (orders.py)
+    if _ext_file(pkg):
+        r.ok(f"pi-herdr: {pkg}")
+    else:
+        r.warn("pi-herdr no encontrado: sin avisos de agentes", "pi install github:kcurtet/pi-herdr")
+    st = Orchestrator(oc).status()
+    if st:
+        r.ok(f"{oc['agent']} en marcha ({st})", f"dile «{oc['agent'].capitalize()}, …»")
+    else:
+        r.warn(f"{oc['agent']} no está en marcha", "el servicio la arranca solo; o: nyx agent")
+
+
 def doctor() -> int:
     r = Report()
     from .migrate import run as migrate_run
@@ -244,25 +271,7 @@ def doctor() -> int:
     oc = cfg["orders"]
     if oc["enabled"]:
         r.section(f"{oc['agent'].capitalize()} (órdenes por voz)")
-        from .orders import Orchestrator, _ext_file, _pi_herdr_path, choose_backend
-
-        kind, reason = choose_backend(oc)
-        if kind is None:
-            r.warn("no disponible", reason)
-        elif kind == "pi":
-            r.ok("pi en segundo plano (sin herdr)", "funciona igual, pero sin paneles ni avisos de tus agentes de herdr")
-        else:
-            r.ok("herdr + pi", "en su propio workspace; vigila a tus agentes con pi-herdr")
-            pkg = _pi_herdr_path(oc)  # la misma ruta que usa la orquestadora (orders.py)
-            if _ext_file(pkg):
-                r.ok(f"pi-herdr: {pkg}")
-            else:
-                r.warn("pi-herdr no encontrado: sin avisos de agentes", "pi install github:kcurtet/pi-herdr")
-            st = Orchestrator(oc).status()
-            if st:
-                r.ok(f"{oc['agent']} en marcha ({st})", f"dile «{oc['agent'].capitalize()}, …»")
-            else:
-                r.warn(f"{oc['agent']} no está en marcha", "el servicio la arranca solo; o: nyx agent")
+        _doctor_orders(r, oc)
 
     # --------------------------------------------------------- LLM opcional
     if cfg["llm"]["enabled"]:

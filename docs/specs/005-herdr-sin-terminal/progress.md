@@ -25,3 +25,13 @@
 
 - Commit (siguiente hash). Tests: `-k "eleccion or explicito or sin_instalar"` → eleccion y explicito FAIL (choose_backend ignora el ensure falso, como el plan), sin_instalar ya PASABA (la rama "no instalado" existía: es test de regresión, no comportamiento nuevo). Tras implementar: 3 PASS; suite 195 passed, ruff limpio.
 - Desviación menor: en la fase roja, `test_eleccion_de_backend` alcanzó `herdr_available()` REAL (FileNotFoundError en `/usr/bin/herdr` falso). Solo lectura (`status --json`), nunca spawn; desaparece al implementar.
+
+## Task 5: complete
+
+- Commit (siguiente hash). Tests: `-k doctor_avisa` → FAIL (AttributeError: `_doctor_orders`) → PASS; suite 196 passed, ruff limpio.
+- Elección de implementación (el plan dejaba el "cómo" abierto): sección de doctor extraída a `_doctor_orders(r, oc)` para llamarla aislada en test (con choose_backend/_herdr/_SERVER_STARTED_BY_NYX fakeados, D3b: cero subprocess reales). La salida de doctor() es idéntica línea a línea.
+
+## Verificación final
+
+- `uv run pytest -q tests` → 196 passed · `uvx ruff check .` → All checks passed! (rama hd/impl-005, 5 commits).
+- PENDIENTE (humano): demo manual con servidor real — `herdr server stop` → `systemctl --user restart nyx` → esperar ~25 s → `herdr workspace list` muestra el workspace con el servidor arrancado por nyx; `pgrep -af "herdr server"` sin TTY. NO ejecutada (mataría los paneles vivos del usuario).

@@ -222,3 +222,17 @@ def test_ensure_agota_el_plazo_sin_running(monkeypatch):  # A2 (parte del mecani
     monkeypatch.setattr(o.time, "monotonic", _reloj_rapido())
     ok, why = o._ensure_herdr_server()
     assert not ok and why
+
+
+def test_doctor_avisa_si_nyx_arranco_herdr(capsys, monkeypatch):  # D5
+    from nyx import doctor as d
+
+    def seccion(flag):
+        monkeypatch.setattr(o, "choose_backend", lambda cfg: ("herdr", ""))
+        monkeypatch.setattr(o, "_herdr", lambda *a, timeout=10: (1, None, ""))  # agente parado
+        monkeypatch.setattr(o, "_SERVER_STARTED_BY_NYX", flag)
+        d._doctor_orders(d.Report(), CFG)
+        return capsys.readouterr().out
+
+    assert "herdr server arrancado por nyx" in seccion(True)
+    assert "herdr server arrancado por nyx" not in seccion(False)
