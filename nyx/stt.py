@@ -120,35 +120,45 @@ class Transcriber:
 
     def segments(self, audio: np.ndarray, context: str = ""):
         """Audio largo (ficheros, sesiones): segmentos con tiempos y contexto entre ellos.
-        `context`: final del bloque anterior, para no perder el hilo entre bloques."""
-        self._ensure_loaded()
+        `context`: final del bloque anterior, para no perder el hilo entre bloques.
+        Recheck del modelo DENTRO de la llave: un unload() que gane la llave en el hueco tras
+        _ensure_loaded() se reintenta (bucle) SIN la llave tomada — nunca None.transcribe."""
         prompt = " ".join(p for p in (self.prompt(), context.strip()) if p)
-        with self.lock:
-            segs, _ = self.model.transcribe(
-                audio,
-                language=self.cfg["language"],
-                beam_size=self.cfg["beam_size"],
-                initial_prompt=prompt or None,
-                vad_filter=True,
-                condition_on_previous_text=True,  # coherencia en textos largos
-            )
-            return list(segs)
-
-    def transcribe(self, audio: np.ndarray) -> str:
-        self._ensure_loaded()
-        with self._prio_lock:
-            self._priority += 1  # el dictado pasa delante de los bloques de transcripciones largas
-        try:
+        while True:
+            self._ensure_loaded()
             with self.lock:
+                if self.model is None:  # unload() ganó la llave en el hueco: salir y reintentar
+                    continue  # (nunca _ensure_loaded() con la llave tomada: su load() la necesita)
                 segs, _ = self.model.transcribe(
                     audio,
                     language=self.cfg["language"],
                     beam_size=self.cfg["beam_size"],
-                    initial_prompt=self.prompt() or None,
+                    initial_prompt=prompt or None,
                     vad_filter=True,
-                    condition_on_previous_text=False,
+                    condition_on_previous_text=True,  # coherencia en textos largos
                 )
-                return " ".join(s.text.strip() for s in segs).strip()
-        finally:
+                return list(segs)
+
+    def transcribe(self, audio: np.ndarray) -> str:
+        """Recheck del modelo DENTRO de la llave (igual que segments): un unload() que gane la
+        llave en el hueco tras _ensure_loaded() se reintenta en bucle SIN la llave tomada."""
+        while True:
+            self._ensure_loaded()
             with self._prio_lock:
-                self._priority -= 1
+                self._priority += 1  # el dictado pasa delante de los bloques de transcripciones largas
+            try:
+                with self.lock:
+                    if self.model is None:  # unload() ganó la llave en el hueco: salir y reintentar
+                        continue  # (el continue suelta la llave ANTES de volver a _ensure_loaded)
+                    segs, _ = self.model.transcribe(
+                        audio,
+                        language=self.cfg["language"],
+                        beam_size=self.cfg["beam_size"],
+                        initial_prompt=self.prompt() or None,
+                        vad_filter=True,
+                        condition_on_previous_text=False,
+                    )
+                    return " ".join(s.text.strip() for s in segs).strip()
+            finally:
+                with self._prio_lock:
+                    self._priority -= 1

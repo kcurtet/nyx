@@ -131,6 +131,40 @@ def test_on_loaded_se_llama_tras_exito(monkeypatch):  # y NO tras carga fallida
     assert hits == [1] and t.error is not None
 
 
+class _RaceLock:
+    """Lock envoltorio que dispara un unload() justo ANTES de la primera adquisición: el
+    consumidor ya pasó _ensure_loaded() y va a tomar la llave (la intercalación exacta de la
+    carrera NoneType.transcribe, forzada de forma determinista)."""
+
+    def __init__(self, real, t):
+        self.real, self.t, self.armed = real, t, True
+
+    def __enter__(self):
+        if self.armed:
+            self.armed = False
+            self.t.unload()  # el unload gana la llave en el hueco y COMPLETA: model = None
+        return self.real.__enter__()
+
+    def __exit__(self, *exc):
+        return self.real.__exit__(*exc)
+
+
+def test_transcribe_race_unload_en_hueco(monkeypatch):  # NoneType.transcribe → self-heal
+    t, box = _stt(monkeypatch)
+    t.load()
+    t.lock = _RaceLock(t.lock, t)
+    assert t.transcribe(np.zeros(1600, np.float32)) == "hola"  # reintenta y devuelve texto
+    assert box["calls"] == 2  # cargó, descargaron en el hueco y volvió a cargar
+
+
+def test_segments_race_unload_en_hueco(monkeypatch):  # mismo hueco en segments()
+    t, box = _stt(monkeypatch)
+    t.load()
+    t.lock = _RaceLock(t.lock, t)
+    assert [s.text for s in t.segments(np.zeros(1600, np.float32))] == [" hola"]
+    assert box["calls"] == 2
+
+
 # ---------------------------------------------------------------- T2: Speaker
 TTS_CFG = {"model": "m", "quant": False, "voice": "es", "lexicon": {}}
 
