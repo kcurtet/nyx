@@ -119,7 +119,9 @@ Deja una nota de voz (`.ogg`, `.opus`, `.m4a`) en **`~/Documentos/nyx/notas`** y
 
 ## Icono en la bandeja
 
-El servicio pone un micrófono en la bandeja del sistema que cambia de color: **gris** listo · **rojo** grabando · **azul** trabajando · **morado** leyendo · **naranja** sin servicio. Menú: dictar, leer selección/callar, transcribir fichero, Nyx, configuración, log y reiniciar. Desactívalo con `[tray] enabled = false`.
+El servicio pone un micrófono en la bandeja del sistema que cambia de color: **gris** listo · **rojo** grabando · **azul** trabajando · **morado** leyendo · **ámbar** GPU libre · **naranja** sin servicio. Menú: dictar, leer selección/callar, transcribir fichero, Nyx, configuración, log y reiniciar. Desactívalo con `[tray] enabled = false`.
+
+**Liberar GPU** descarga Whisper (y la voz) de la memoria de la gráfica sin cerrar nyx: útil al jugar. El primer uso posterior —dictar, transcribir, sesión, leer— recarga lo que haga falta solo (al pulsar la tecla de dictado la carga ya arranca; si tarda, verás «cargando modelo…»). No persiste: al reiniciar el servicio, el modelo carga como siempre.
 
 ## Nyx: órdenes por voz
 
