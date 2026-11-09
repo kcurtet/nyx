@@ -23,9 +23,9 @@
 - Precarga de salida carga solo Whisper (el TTS ya es lazy bajo demanda): opción que la spec deja al builder; `say()` lo recarga solo si hace falta.
 - `status()` no expone campo «cargando» propio (no pedido): «cargando modelo…» se infiere de `stt_ready=false` como hoy.
 
-## PENDIENTE (humano) — verificación final manual, NO ejecutada
+## PENDIENTE (humano) — verificación final manual — ✅ COMPLETADA 2026-11-09
 
-Servicio real en marcha → «Liberar GPU» en el tray → `nvidia-smi --query-compute-apps`: VRAM de nyx de ~2.2 GiB a <300 MiB (A1); icono ámbar «GPU libre» (A7); dictar → «cargando modelo…» → texto, segundo dictado sin espera, tray vuelve a normal (A2); «léeme esto» recarga la voz y lee (A3); fichero/sesión recargan y desactivan el modo (A4); toggle con trabajo en curso → aviso (A5); reinicio del servicio carga como siempre (A6).
+Verificado por el orquestador contra el servicio real (tras `install.sh --local --no-system`) y confirmado por el humano («todo funciona correctamente»): «gpu» vía canal de control → VRAM 2194→104 MiB (A1) · status refleja gpu_free (A7/A9) · toggle de vuelta recarga y apaga el modo (104→2196 MiB) · keydown simulado con GPU libre dispara la recarga (D4) y apaga el modo al completarse (D4b) · un toggle durante carga fue rechazado por el gate (A5 en vivo). Dictado real con micrófono: confirmado por el humano.
 
 ## Review fixes
 

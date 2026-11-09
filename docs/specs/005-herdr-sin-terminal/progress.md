@@ -34,4 +34,4 @@
 ## Verificación final
 
 - `uv run pytest -q tests` → 196 passed · `uvx ruff check .` → All checks passed! (rama hd/impl-005, 5 commits).
-- PENDIENTE (humano): demo manual con servidor real — `herdr server stop` → `systemctl --user restart nyx` → esperar ~25 s → `herdr workspace list` muestra el workspace con el servidor arrancado por nyx; `pgrep -af "herdr server"` sin TTY. NO ejecutada (mataría los paneles vivos del usuario).
+- PENDIENTE (humano): demo manual con servidor real — ✅ RESUELTA de facto 2026-11-09: tras `install.sh --local --no-system` el servicio rearrancó con backend herdr+pi operativo (doctor: «nyx-agent en marcha (idle)», arranque bajo demanda ejercitado por el supervisor). Humano confirmó: «todo funciona correctamente».
