@@ -10,9 +10,11 @@ El lexicón reescribe los términos como suenan ("kubectl" → "kiub ci ti el").
 """
 from __future__ import annotations
 
+import gc
 import re
 import threading
 import unicodedata
+from collections.abc import Callable
 
 import numpy as np
 
@@ -153,18 +155,44 @@ class Speaker:
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._stream = None
+        self.on_loaded: Callable[[], None] | None = None  # avisa de toda recarga exitosa (spec 006 D4b)
+        self._loading = threading.Event()  # guard: una sola carga en marcha
 
     def load(self):
+        """Carga phonon con la llave TOMADA DURANTE TODA la carga (serializa con unload);
+        guard anti-doble-carga. Un fallo no lanza: queda logueado y say() devuelve False."""
+        if self._loading.is_set() or self.tts is not None:
+            return
+        self._loading.set()
+        self.ready.clear()  # carga nueva en marcha: el veredicto anterior (éxito o fallo) caduca
         try:
-            from ptts import TTS
+            try:
+                from ptts import TTS
 
-            self.tts = TTS(model=self.cfg["model"], lang="es", quant=self.cfg["quant"], voice=self.cfg["voice"])
-            list(self.tts.stream("Hola."))  # calentamiento
-            log(f"[tts] phonon listo · voz {self.cfg['voice']}")
-        except Exception as e:  # noqa: BLE001
-            log(f"[tts] no disponible: {e}")
+                with self._lock:
+                    self.tts = TTS(model=self.cfg["model"], lang="es", quant=self.cfg["quant"],
+                                   voice=self.cfg["voice"])
+                    list(self.tts.stream("Hola."))  # calentamiento
+                    log(f"[tts] phonon listo · voz {self.cfg['voice']}")
+            except Exception as e:  # noqa: BLE001
+                log(f"[tts] no disponible: {e}")
+            finally:
+                self.ready.set()
+            if self.tts is not None and self.on_loaded:
+                self.on_loaded()
         finally:
-            self.ready.set()
+            self._loading.clear()
+
+    def unload(self):
+        """Modo GPU libre: suelta la voz de memoria (bajo llave, idempotente)."""
+        with self._lock:
+            if self.tts is None:
+                return
+            self.stop()
+            self.tts = None
+            self.ready.clear()
+        gc.collect()
+        log("[tts] phonon descargado (GPU libre)")
 
     @property
     def speaking(self) -> bool:
@@ -183,11 +211,16 @@ class Speaker:
             t.join(timeout=2)
 
     def say(self, text: str, on_start=None, on_end=None, brief: bool = False) -> bool:
-        """Lee `text` en segundo plano (interrumpe lo que estuviera leyendo)."""
+        """Lee `text` en segundo plano (interrumpe lo que estuviera leyendo).
+        Si la voz está descargada (GPU libre), la recarga ANTES de tomar el lock: nunca se
+        espera dentro del lock con el TTS descargado, ni se queda colgado sin cargar.
+        Si la recarga falla, devuelve False limpio (un reintento por say, no un bucle)."""
+        if self.tts is None and not self._loading.is_set():
+            threading.Thread(target=self.load, daemon=True).start()
+        self.ready.wait()
         with self._lock:
             self.stop()
-            self.ready.wait()
-            if self.tts is None:
+            if self.tts is None:  # la recarga falló (o volvieron a descargarla): aviso, no hang
                 return False
             parts = prepare(text, self.lexicon, self.cfg.get("max_chars", 4000),
                             self.cfg.get("brief_chars", 350) if brief else None)

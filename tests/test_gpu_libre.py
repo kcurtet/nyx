@@ -3,13 +3,16 @@
 Siempre con fakes: `Transcriber._load` y `Speaker.load` (o un módulo ptts falso) se
 monkeypatchean — la suite nunca importa faster_whisper ni ptts de verdad.
 """
+import sys
 import threading
 import time
+import types
 
 import numpy as np
 import pytest
 
 import nyx.stt as o_stt
+import nyx.tts as o_tts
 
 # ---------------------------------------------------------------- fakes stt
 CFG = {"model": "m", "device": "cpu", "compute_type": "int8", "language": "es",
@@ -126,3 +129,112 @@ def test_on_loaded_se_llama_tras_exito(monkeypatch):  # y NO tras carga fallida
     with pytest.raises(RuntimeError):
         t.load()
     assert hits == [1] and t.error is not None
+
+
+# ---------------------------------------------------------------- T2: Speaker
+TTS_CFG = {"model": "m", "quant": False, "voice": "es", "lexicon": {}}
+
+
+class _FakeTTS:
+    def __init__(self, **kw):
+        self.sample_rate = 16000
+
+    def stream(self, part):
+        return iter([np.zeros(4, np.float32)])
+
+
+def _speaker(monkeypatch, ok=True):
+    """Speaker con load() falso a nivel de instancia: asigna tts (o no) y pone ready."""
+    sp = o_tts.Speaker(TTS_CFG)
+
+    def load():
+        if ok:
+            sp.tts = _FakeTTS()
+        sp.ready.set()
+
+    monkeypatch.setattr(sp, "load", load)
+    return sp
+
+
+def _ptts_falso(monkeypatch, cls):
+    mod = types.ModuleType("ptts")
+    mod.TTS = cls
+    monkeypatch.setitem(sys.modules, "ptts", mod)
+
+
+def test_speaker_unload_idempotente(monkeypatch):  # A8
+    sp = _speaker(monkeypatch)
+    sp.load()
+    assert sp.tts is not None and sp.ready.is_set()
+    sp.unload()
+    assert sp.tts is None and not sp.ready.is_set()
+    sp.unload()  # segunda llamada: no-op
+    assert sp.tts is None
+
+
+def test_say_con_tts_descargado_recarga_y_lee(monkeypatch):  # A8: self-heal en say
+    sp = _speaker(monkeypatch)
+    sp.load()
+    sp.unload()
+    said, done = [], threading.Event()
+
+    def _run(parts, on_start, on_end):
+        said.extend(parts)
+        done.set()
+
+    monkeypatch.setattr(sp, "_run", _run)
+    assert sp.say("Hola mundo.") is True  # recargó solo y habló: ni hang ni False
+    assert done.wait(5) and said == ["Hola mundo."]
+
+
+def test_say_sigue_fallando_limpio_si_carga_falla(monkeypatch):  # A3: aviso, no hang
+    sp = _speaker(monkeypatch, ok=False)
+    sp.ready.set()  # carga inicial fallida
+    assert sp.say("algo") is False  # reintenta en bg, pero devuelve False rápido
+    assert sp.tts is None
+
+
+def test_speaker_on_loaded_tras_exito(monkeypatch):  # y NO tras carga fallida (load real, ptts falso)
+    _ptts_falso(monkeypatch, _FakeTTS)
+    sp = o_tts.Speaker(TTS_CFG)
+    hits = []
+    sp.on_loaded = lambda: hits.append(1)
+    sp.load()
+    assert sp.tts is not None and hits == [1]
+    sp.unload()
+    hits.clear()
+
+    class _Roto:
+        def __init__(self, **kw):
+            raise RuntimeError("roto")
+
+    _ptts_falso(monkeypatch, _Roto)
+    sp.load()
+    assert sp.tts is None and hits == [] and sp.ready.is_set()  # fallo: sin on_loaded, sin hang
+
+
+def test_speaker_guard_sin_doble_carga(monkeypatch):  # una sola construcción aunque llamen dos
+    box = {"inits": 0, "in": threading.Event(), "out": threading.Event()}
+
+    class _Lenta:
+        def __init__(self, **kw):
+            box["inits"] += 1
+            box["in"].set()
+            box["out"].wait(5)
+            self.sample_rate = 16000
+
+        def stream(self, s):
+            return iter([np.zeros(4, np.float32)])
+
+    _ptts_falso(monkeypatch, _Lenta)
+    sp = o_tts.Speaker(TTS_CFG)
+    ts = [threading.Thread(target=sp.load) for _ in range(2)]
+    for x in ts:
+        x.start()
+    box["in"].wait(5)
+    time.sleep(0.2)
+    assert box["inits"] == 1  # la 2ª load() volvió por el guard
+    box["out"].set()
+    for x in ts:
+        x.join(5)
+    assert box["inits"] == 1 and sp.tts is not None

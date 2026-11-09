@@ -51,6 +51,7 @@ class Transcriber:
         if self._loading.is_set() or self.model is not None:
             return
         self._loading.set()
+        self.ready.clear()  # carga nueva en marcha: el veredicto anterior (éxito o fallo) caduca
         try:
             want = self.cfg["device"]
             device = ("cuda" if cuda_available() else "cpu") if want == "auto" else want
