@@ -238,3 +238,87 @@ def test_speaker_guard_sin_doble_carga(monkeypatch):  # una sola construcción a
     for x in ts:
         x.join(5)
     assert box["inits"] == 1 and sp.tts is not None
+
+
+# ---------------------------------------------------------------- T3: comando "gpu"
+class _GateStt:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.model = object()
+        self.unloads = self.loads = 0
+
+    def unload(self):
+        self.unloads += 1
+        self.model = None
+
+    def load(self):
+        self.loads += 1
+        self.model = object()
+
+    def _spawn_load(self):
+        threading.Thread(target=self.load, daemon=True).start()
+
+
+class _GateSpeaker:
+    def __init__(self):
+        self.speaking = False
+        self.unloads = 0
+
+    def unload(self):
+        self.unloads += 1
+
+
+def test_gpu_toggle_libera_y_rechaza_con_trabajo():  # A9 + A5
+    from nyx.app import gpu_toggle
+
+    avisos = []
+    stt, spk = _GateStt(), _GateSpeaker()
+    state, session = {"recording": False, "busy": False, "gpu_free": False}, {"s": None}
+    assert gpu_toggle(state, stt, spk, session, avisos.append) == ""  # idle: alterna
+    assert state["gpu_free"] and stt.unloads == 1 and spk.unloads == 1
+
+    state["gpu_free"], stt.unloads, spk.unloads = False, 0, 0
+    state["recording"] = True  # dictado entre keydown y release: sin llave, pero rechaza
+    assert gpu_toggle(state, stt, spk, session, avisos.append)
+    state["recording"] = False
+    state["busy"] = True
+    assert gpu_toggle(state, stt, spk, session, avisos.append)
+    state["busy"] = False
+    session["s"] = object()  # sesión en el hueco entre bloques de 25 s
+    assert gpu_toggle(state, stt, spk, session, avisos.append)
+    session["s"] = None
+    spk.speaking = True  # leyendo en voz alta
+    assert gpu_toggle(state, stt, spk, session, avisos.append)
+    spk.speaking = False
+    with stt.lock:  # transcripción de fichero en curso (llave tomada)
+        assert gpu_toggle(state, stt, spk, session, avisos.append)
+    assert not state["gpu_free"] and stt.unloads == 0 and spk.unloads == 0
+    assert avisos and all(avisos)  # siempre con aviso, nunca en silencio
+
+
+def test_gpu_toggle_salir_precarga():
+    from nyx.app import gpu_toggle
+
+    stt = _GateStt()
+    stt.model = None
+    state = {"recording": False, "busy": False, "gpu_free": True}
+    assert gpu_toggle(state, stt, _GateSpeaker(), {"s": None}, lambda m: None) == ""
+    assert not state["gpu_free"]
+    fin = time.time() + 5
+    while stt.loads == 0 and time.time() < fin:
+        time.sleep(0.02)
+    assert stt.loads == 1  # recarga (precarga) en segundo plano
+
+
+def test_recarga_apaga_el_modo(monkeypatch):  # D4b: on_loaded de stt/speaker → gpu_free False
+    from nyx.app import _link_gpu_free
+
+    t, _box = _stt(monkeypatch)  # Transcriber real con _load falso
+    spk = _GateSpeaker()
+    state = {"gpu_free": True}
+    _link_gpu_free(state, t, spk)
+    t.load()
+    assert state["gpu_free"] is False
+    state["gpu_free"] = True
+    spk.on_loaded()
+    assert state["gpu_free"] is False

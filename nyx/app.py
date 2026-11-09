@@ -62,11 +62,14 @@ def run():
     speaker = Speaker(cfg["tts"]) if cfg["tts"]["enabled"] else None
     orch = Orchestrator(cfg["orders"]) if cfg["orders"]["enabled"] else None
     lock = threading.Lock()
-    state = {"recording": False, "busy": False, "error": ""}
+    state = {"recording": False, "busy": False, "error": "", "gpu_free": False}
+    _link_gpu_free(state, stt, speaker)
 
     def start():
         if speaker and speaker.speaking:  # si empiezas a hablar, se calla
             speaker.stop()
+        if stt.model is None:
+            stt._spawn_load()  # D4: GPU libre → la carga arranca al PULSAR (el self-heal la cubre igual)
         with lock:
             if state["recording"]:
                 return
@@ -230,6 +233,7 @@ def run():
                 "tts_ready": bool(speaker and speaker.tts is not None),
                 "recording": state["recording"],
                 "busy": state["busy"] or stt.lock.locked(),
+                "gpu_free": state["gpu_free"],
                 "speaking": bool(speaker and speaker.speaking),
                 "dictation_key": cfg["hotkey"]["key"],
                 "read_key": cfg["tts"]["key"],
@@ -334,6 +338,8 @@ def run():
         ControlServer({"start": start, "stop": stop, "toggle": toggle, "cancel": cancel,
                        "say": say, "say-brief": lambda t: say(t, brief=True),
                        "read": read_selection, "hush": hush, "order": send_order,
+                       "gpu": lambda _p="": gpu_toggle(state, stt, speaker, session,
+                                                        lambda m: ui.call(ui.error, m)),
                        "transcribe": transcribe_req, "status": status,
                        "record-start": record_start, "record-stop": record_stop,
                        "agent-start": agent_start, "agent-restart": agent_restart,
@@ -356,6 +362,40 @@ def run():
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     ui.run(on_ready)
+
+
+# ------------------------------------------------------------- modo GPU libre (spec 006)
+def gpu_toggle(state: dict, stt, speaker, session: dict, notify) -> str:
+    """Comando de control "gpu": entra/sale del modo GPU libre (modelos fuera de memoria,
+    servicio y config vivos). Devuelve "" si alternó; con trabajo en curso RECHAZA (spec A5)
+    y devuelve el aviso. El gate combina señales (spec D1): la llave del modelo sola no basta
+    (la grabación entre keydown y release no la toma; una sesión la suelta entre bloques)."""
+    if not state.get("gpu_free"):
+        if (state.get("recording") or state.get("busy") or session.get("s")
+                or stt.lock.locked() or (speaker is not None and speaker.speaking)):
+            msg = "espera a que termine lo que está haciendo nyx"
+            notify(msg)
+            return msg
+        stt.unload()  # bajo llave: si una carga/inferencia llegó antes, espera y luego descarga
+        if speaker is not None:
+            speaker.unload()
+        state["gpu_free"] = True
+        return ""
+    state["gpu_free"] = False
+    stt._spawn_load()  # salir: recarga en segundo plano (guard: no duplica una carga en marcha)
+    return ""
+
+
+def _link_gpu_free(state: dict, stt, speaker) -> None:
+    """D4b: toda recarga exitosa (dictado, fichero, sesión, lectura… desde cualquier camino)
+    apaga el modo — el status y el tray nunca mienten. Asignación de dict: thread-safe."""
+
+    def loaded():
+        state["gpu_free"] = False
+
+    stt.on_loaded = loaded
+    if speaker is not None:
+        speaker.on_loaded = loaded
 
 
 def keys():
