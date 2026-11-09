@@ -5,7 +5,7 @@ convivir en el mismo proceso. Habla con el servicio por el canal de control (sta
 toggle, read, hush, transcribe…) y se cierra solo si el servicio desaparece.
 
 Color del icono: gris = listo · rojo = grabando · azul = transcribiendo/cargando ·
-morado = leyendo · naranja = sin servicio.
+morado = leyendo · ámbar apagado = GPU libre (modelos descargados) · naranja = sin servicio.
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ COLORS = {
     "recording": (255, 69, 58),
     "busy": (10, 132, 255),
     "speaking": (191, 90, 242),
+    "free": (200, 130, 50),
     "down": (255, 159, 10),
 }
 LABELS = {
@@ -32,6 +33,7 @@ LABELS = {
     "recording": "grabando…",
     "busy": "trabajando…",
     "speaking": "leyendo en voz alta",
+    "free": "GPU libre",
     "down": "sin servicio",
 }
 GIVE_UP_AFTER = 8.0  # s sin servicio → el tray se cierra (el servicio nuevo arranca otro)
@@ -68,6 +70,8 @@ def state_of(st: dict | None) -> str:
         return "recording"
     if st.get("speaking"):
         return "speaking"
+    if st.get("gpu_free"):  # antes que "modelo no listo": si no, free se pintaría azul busy
+        return "free"
     if st.get("busy") or not st.get("stt_ready"):
         return "busy"
     return "idle"
@@ -130,9 +134,11 @@ def main() -> int:
 
     current = {"state": "down", "status": None}
 
-    def send(cmd: str) -> None:
+    def send(cmd: str, report: bool = False) -> None:
         try:
-            send_command(cmd)
+            r = send_command(cmd)
+            if report and r and r != "ok":
+                notify("nyx", r)  # p. ej. "espera a que termine": el servicio rechazó (spec A5)
         except OSError:
             notify("nyx no está en marcha")
 
@@ -200,6 +206,10 @@ def main() -> int:
         key = st.get("dictation_key", "").removeprefix("KEY_").replace("RIGHTCTRL", "Ctrl derecho")
         return f"Dictar ({key})" if key else "Dictar"
 
+    def gpu_label(_item=None) -> str:  # spec 006: toggle dinámico según el modo
+        st = current["status"] or {}
+        return "Usar GPU (carga modelo)" if st.get("gpu_free") else "Liberar GPU"
+
     def speak_action(_icon=None, _item=None):
         st = current["status"] or {}
         send("hush" if st.get("speaking") else "read")
@@ -235,6 +245,7 @@ def main() -> int:
             Item("Micrófono + audio del PC", record("--both"), enabled=no_session),
         ), visible=lambda _i=None: not in_session()),
         Item("Parar sesión y abrir", record_stop, visible=in_session),
+        Item(gpu_label, lambda: send("gpu", report=True), enabled=up),
         Item(nyx_label, Menu(
             Item("Reiniciar Nyx", agent_restart, enabled=up),
             Item("Ir a su panel", nyx_focus, visible=nyx_in_herdr),

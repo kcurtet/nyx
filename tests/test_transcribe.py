@@ -46,6 +46,21 @@ def test_tray_estado_e_icono():
     assert img.size == (64, 64) and img.getpixel((32, 4))[:3] == (255, 69, 58)
 
 
+def test_state_of_gpu_libre():  # spec 006 A7: estado free, color propio (no el gris de idle)
+    from nyx.tray import COLORS, LABELS, icon_image, state_of
+
+    assert state_of({"gpu_free": True}) == "free"
+    assert state_of({"gpu_free": True, "recording": True}) == "recording"  # transitorio al salir
+    assert LABELS["free"] and "free" in COLORS and COLORS["free"] != COLORS["idle"]
+    assert icon_image("free", 64).getpixel((32, 4))[:3] == COLORS["free"]
+
+
+def test_state_of_free_gana_a_busy():  # sin esto, free se pintaría azul "busy" (spec D5)
+    from nyx.tray import state_of
+
+    assert state_of({"gpu_free": True, "stt_ready": False}) == "free"
+
+
 # ---------------------------------------------------------------- sesiones y notas
 import time as _time
 
