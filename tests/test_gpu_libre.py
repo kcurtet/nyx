@@ -114,6 +114,26 @@ def test_guard_sin_doble_carga(monkeypatch):  # A8: dos load() en marcha → una
     assert box["calls"] == 1
 
 
+def test_stt_guard_atomico_barrera(monkeypatch):  # N load() simultáneos → exactamente 1 _load
+    """El guard check-then-set (`is_set() or ...` + `set()`) deja pasar a N hilos que evalúan
+    a la vez; test_guard_sin_doble_carga solo cubre el secuencial. Con el ganador aparcado
+    DENTRO de _load (model aún None) y, si el guard es un Event, el calendario adverso forzado
+    (is_set→False), TODOS pasan el guard: solo un guard atómico sobrevive a eso."""
+    t, box = _stt(monkeypatch, lenta=True)
+    if isinstance(t._loading, threading.Event):
+        t._loading.is_set = lambda: False  # type: ignore[method-assign]
+    bar = threading.Barrier(8)
+    ts = [threading.Thread(target=lambda b=bar, x=t: (b.wait(), x.load())) for _ in range(8)]
+    for x in ts:
+        x.start()
+    box["in"].wait(5)  # el ganador ya está DENTRO de _load (llave tomada, model aún None)
+    time.sleep(0.2)  # los otros 7 evalúan el guard con la carga a medias
+    box["out"].set()
+    for x in ts:
+        x.join(10)
+    assert box["calls"] == 1
+
+
 def test_on_loaded_se_llama_tras_exito(monkeypatch):  # y NO tras carga fallida
     t, _box = _stt(monkeypatch)
     hits = []
@@ -272,6 +292,36 @@ def test_speaker_guard_sin_doble_carga(monkeypatch):  # una sola construcción a
     for x in ts:
         x.join(5)
     assert box["inits"] == 1 and sp.tts is not None
+
+
+def test_tts_guard_atomico_barrera(monkeypatch):  # N load() simultáneos → exactamente 1 TTS()
+    """Gemelo del de stt: TTS aparcado en construcción + calendario adverso (is_set→False)."""
+    box = {"inits": 0, "in": threading.Event(), "out": threading.Event()}
+
+    class _LentaContada:
+        def __init__(self, **kw):
+            box["inits"] += 1
+            box["in"].set()
+            box["out"].wait(5)
+            self.sample_rate = 16000
+
+        def stream(self, s):
+            return iter([np.zeros(4, np.float32)])
+
+    _ptts_falso(monkeypatch, _LentaContada)
+    sp = o_tts.Speaker(TTS_CFG)
+    if isinstance(sp._loading, threading.Event):
+        sp._loading.is_set = lambda: False  # type: ignore[method-assign]
+    bar = threading.Barrier(8)
+    ts = [threading.Thread(target=lambda b=bar, s=sp: (b.wait(), s.load())) for _ in range(8)]
+    for x in ts:
+        x.start()
+    box["in"].wait(5)
+    time.sleep(0.2)
+    box["out"].set()
+    for x in ts:
+        x.join(10)
+    assert box["inits"] == 1
 
 
 # ---------------------------------------------------------------- T3: comando "gpu"

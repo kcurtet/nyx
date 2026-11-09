@@ -156,14 +156,16 @@ class Speaker:
         self._thread: threading.Thread | None = None
         self._stream = None
         self.on_loaded: Callable[[], None] | None = None  # avisa de toda recarga exitosa (spec 006 D4b)
-        self._loading = threading.Event()  # guard: una sola carga en marcha
+        self._loading = threading.Lock()  # guard atómico (acquire no bloqueante): una sola carga en marcha
 
     def load(self):
         """Carga phonon con la llave TOMADA DURANTE TODA la carga (serializa con unload);
-        guard anti-doble-carga. Un fallo no lanza: queda logueado y say() devuelve False."""
-        if self._loading.is_set() or self.tts is not None:
+        guard ATÓMICO: `acquire(blocking=False)` es check-and-set de una pieza (is_set()+set()
+        dejaba pasar N hilos). Un fallo no lanza: queda logueado y say() devuelve False."""
+        if self.tts is not None:
             return
-        self._loading.set()
+        if not self._loading.acquire(blocking=False):  # alguien ya carga: return inmediato
+            return
         self.ready.clear()  # carga nueva en marcha: el veredicto anterior (éxito o fallo) caduca
         try:
             try:
@@ -181,7 +183,7 @@ class Speaker:
             if self.tts is not None and self.on_loaded:
                 self.on_loaded()
         finally:
-            self._loading.clear()
+            self._loading.release()
 
     def unload(self):
         """Modo GPU libre: suelta la voz de memoria (bajo llave, idempotente)."""
@@ -215,7 +217,7 @@ class Speaker:
         Si la voz está descargada (GPU libre), la recarga ANTES de tomar el lock: nunca se
         espera dentro del lock con el TTS descargado, ni se queda colgado sin cargar.
         Si la recarga falla, devuelve False limpio (un reintento por say, no un bucle)."""
-        if self.tts is None and not self._loading.is_set():
+        if self.tts is None and not self._loading.locked():
             threading.Thread(target=self.load, daemon=True).start()
         self.ready.wait()
         with self._lock:

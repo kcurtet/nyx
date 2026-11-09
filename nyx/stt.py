@@ -30,7 +30,7 @@ class Transcriber:
         self._priority = 0  # dictados esperando el modelo: las transcripciones largas ceden el turno
         self._prio_lock = threading.Lock()
         self.on_loaded: Callable[[], None] | None = None  # avisa de toda recarga exitosa (spec 006 D4b)
-        self._loading = threading.Event()  # guard: una sola carga en marcha
+        self._loading = threading.Lock()  # guard atómico (acquire no bloqueante): una sola carga en marcha
 
     def _load(self, device: str):
         from faster_whisper import WhisperModel
@@ -47,10 +47,13 @@ class Transcriber:
     def load(self):
         """Carga el modelo con la llave TOMADA DURANTE TODA la carga: serializa con unload()
         (un toggle a GPU libre espera a que acabe y luego descarga; nunca queda modelo con el
-        modo libre) y con la inferencia. Guard: si ya carga o hay modelo, no hace nada."""
-        if self._loading.is_set() or self.model is not None:
+        modo libre) y con la inferencia. Guard ATÓMICO: `acquire(blocking=False)` es
+        check-and-set de una pieza (el patrón is_set()+set() dejaba pasar N hilos a la vez);
+        early-return si el modelo ya está o si alguien ya está cargando."""
+        if self.model is not None:
             return
-        self._loading.set()
+        if not self._loading.acquire(blocking=False):  # alguien ya carga: return inmediato
+            return
         self.ready.clear()  # carga nueva en marcha: el veredicto anterior (éxito o fallo) caduca
         try:
             want = self.cfg["device"]
@@ -73,7 +76,7 @@ class Transcriber:
             finally:
                 self.ready.set()
         finally:
-            self._loading.clear()
+            self._loading.release()
 
     def unload(self):
         """Modo GPU libre: suelta el modelo de memoria. Bajo llave (recheck TOCTOU): espera a que
@@ -101,7 +104,7 @@ class Transcriber:
         """Espera al modelo; si falta y nadie está cargando (modo GPU libre), lo recarga solo.
         Self-healing de spec 006 D2: nadie se queda colgado en ready.wait() sin carga en marcha."""
         while self.model is None and self.error is None:
-            if not self._loading.is_set():
+            if not self._loading.locked():
                 self._spawn_load()
             self.ready.wait()
         if self.model is None:
