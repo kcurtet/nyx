@@ -23,6 +23,8 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+from .config import log
+
 _PUNCT = " \t.,;:!¡?¿…"
 _SOFT = " \t,;:"  # lo que se limpia sin perder el punto final de la frase
 
@@ -33,6 +35,7 @@ class Result:
     send: bool = False  # pulsar Enter después de pegar
     discard: bool = False  # no pegar nada
     action: str | None = None  # frase-orden completa: "read" (leer selección) · "hush" (callar)
+    keys: list[str] | None = None  # «vim»: secuencia de teclas a pulsar (tokens físicos)
 
 
 def _fold(s: str) -> str:
@@ -79,6 +82,39 @@ def _join_path(body: str) -> str:
             out.append(_PATH_SYMBOLS.get(_fold(words[i]), words[i]))
             i += 1
     return "".join(out)
+
+
+# ------------------------------------------------------------- vim por voz
+# Gramática LÉXICA de los tokens de vim_map (commands.py no ve la capa de teclas):
+# token = cuerpo o mod+cuerpo (mod repetible); cuerpo = 1 alfanumérico ASCII o nombre conocido.
+# / y : NO son inyectables igual en US y ES: solo existen los tokens lógicos slash/colon,
+# que vim_layout resuelve a teclas físicas. Letras y shift+5/shift+1 son universales.
+_VIM_MODS = {"ctrl", "shift", "alt", "super"}
+_VIM_BODIES = {
+    "enter", "esc", "semicolon", "dot", "slash", "colon", "backspace", "tab", "space",
+    "left", "right", "up", "down", "home", "end", "delete", "insert", "pageup", "pagedown",
+}
+_VIM_LAYOUTS = {
+    "slash": {"us": "slash", "es": "shift+7"},
+    "colon": {"us": "shift+semicolon", "es": "shift+dot"},
+}
+
+
+def _vim_tokens(seq: str, layout: str) -> list[str] | None:
+    """Secuencia de vim_map → tokens físicos; None si algún token no casa la gramática
+    (el mapeo entero se ignora y la frase se escribe tal cual)."""
+    out = []
+    for token in seq.split():
+        parts = token.split("+")
+        body, mods = parts[-1], parts[:-1]
+        if any(m not in _VIM_MODS for m in mods) or not (
+            (len(body) == 1 and body.isascii() and body.isalnum()) or body in _VIM_BODIES
+        ):
+            log("[vim] token ilegal, mapeo ignorado:", token)
+            return None
+        # tokens lógicos: el layout decide la tecla física (y sus modificadores)
+        out.append(_VIM_LAYOUTS.get(body, {}).get(layout, token))
+    return out
 
 
 # ------------------------------------------------------------- en medio
@@ -177,6 +213,19 @@ def parse(text: str, commands: dict) -> Result:
         if m and res.text[m.end():].strip(_PUNCT):
             res.text = _join_path(res.text[m.end():].rstrip(_PUNCT))
             break
+
+    # ---- al principio: "modo vim borrar línea" → pulsa teclas (tras «ruta"); mapa exacto
+    for w in sorted(commands.get("vim_words") or [], key=len, reverse=True):
+        m = re.match(r"[\s¿¡]*" + re.escape(_fold(w)) + r"[\s,;:.]+", _fold(res.text))
+        if not m:
+            continue
+        fmap = {_fold(k): v for k, v in (commands.get("vim_map") or {}).items()}
+        body = _fold(res.text[m.end():]).strip(_PUNCT + "\"'«»")
+        if body in fmap:
+            tokens = _vim_tokens(fmap[body], commands.get("vim_layout") or "us")
+            if tokens is not None:
+                return Result("", discard=True, keys=tokens)
+        break  # prefijo reconocido pero frase fuera del mapa: se escribe tal cual
 
     # ---- en cualquier sitio
     res.text = _lowercase_prev(res.text, commands.get("lowercase_words") or [])

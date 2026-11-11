@@ -66,6 +66,37 @@ DEFAULTS: dict = {
         "discard_words": ["borra eso", "bórralo"],
         "code_words": ["código"],
         "path_words": ["ruta"],
+        # «vim …»: frase → secuencia de teclas para la ventana con foco (spec 007).
+        # TODAS las secuencias empiezan con esc (salva desde insert/command mode).
+        # Tokens lógicos «slash»/«colon» los resuelve vim_layout; % y ! son shift+5/shift+1
+        # (universales en US y ES). El mapa del usuario se MERGE con este (gana por frase).
+        "vim_words": ["vim", "modo vim"],
+        "vim_layout": "us",  # us | es (cómo se escriben / y : en tu teclado físico)
+        "vim_map": {
+            "borrar línea": "esc d d",
+            "borrar palabra": "esc d w",
+            "borrar carácter": "esc x",
+            "copiar línea": "esc y y",
+            "pegar": "esc p",
+            "deshacer": "esc u",
+            "rehacer": "esc ctrl+r",
+            "insertar": "esc i",
+            "insertar al final": "esc shift+a",
+            "insertar línea abajo": "esc o",
+            "insertar línea arriba": "esc shift+o",
+            "siguiente palabra": "esc w",
+            "buscar": "esc slash",
+            "buscar y reemplazar": "esc colon shift+5 s slash",
+            "línea de comando": "esc colon",
+            "guardar": "esc colon w enter",
+            "salir": "esc colon q enter",
+            "guardar y salir": "esc colon w q enter",
+            "forzar salir": "esc colon q shift+1 enter",
+            "principio del fichero": "esc g g",
+            "final del fichero": "esc shift+g",
+        },
+        # «programar …»: código de una línea con símbolos hablados (spec 007).
+        "code_line_words": ["programar", "modo programar"],
         "newline_words": ["nueva línea", "salto de línea"],
         "paragraph_words": ["punto y aparte"],
         # Frases-orden (solo si es TODO lo que dices): leer en voz alta lo seleccionado / callar.
