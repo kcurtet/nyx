@@ -107,6 +107,8 @@ class WindowsClipboard(Clipboard):
 class UInputKeys:
     """Teclado virtual del kernel: funciona en Wayland y X11 sin daemons."""
 
+    PRESS_CAPABLE = True  # cubre TODO el set de teclas de press() (spec 007, D6)
+
     def __init__(self):
         from evdev import UInput, ecodes
 
@@ -185,6 +187,8 @@ class WtypeKeys:  # compositores wlroots (Sway, Hyprland…)
 
 
 class PynputKeys:
+    PRESS_CAPABLE = True  # cubre TODO el set de teclas de press() (spec 007, D6)
+
     def __init__(self):
         from pynput.keyboard import Controller, Key
 
@@ -290,6 +294,27 @@ class Output:
             return
         time.sleep(0.15)  # dar tiempo a que la app procese el pegado
         self.keys.combo("enter")
+
+    def press(self, seq: list[str]) -> None:
+        """Secuencia de tokens de teclas (un token = una pulsación; "ctrl+r" es un combo).
+        Una acción propia: no pega texto ni toca el portapapeles. Sin capa de teclas
+        (method="clipboard" o sin uinput), o con una capa parcial (ydotool/wtype/xdotool,
+        que no cubren el set): no-op con log (D6). Si un token falla, se logea y SE SIGUE."""
+        if self.keys is None:
+            log("[output] press sin capa de teclas, secuencia ignorada:", " ".join(seq))
+            return
+        if not getattr(self.keys, "PRESS_CAPABLE", False):
+            log(f"[output] press: {type(self.keys).__name__} no cubre el set de teclas, "
+                f"secuencia ignorada: {' '.join(seq)}")
+            return
+        log("[output] press:", " ".join(seq))
+        for i, token in enumerate(seq):
+            if i:
+                time.sleep(0.01)  # misma cadencia que combo()
+            try:
+                self.keys.combo(token)
+            except Exception as e:  # noqa: BLE001  (una capa rota no tira la secuencia)
+                log(f"[output] press: falló {token!r}: {e!r}")
 
     def emit(self, text: str):
         if not text:
