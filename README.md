@@ -151,11 +151,32 @@ Palabras que no se escriben, sino que hacen algo. Se ignoran tildes y mayúscula
 | *"… **borra eso**"* | no pega nada |
 | *"**código** git status"* | `` `git status` `` |
 | *"**ruta** tilde barra dev barra nyx punto md"* | `~/dev/nyx.md` (paths: símbolos hablados pegados; «espacio» = espacio real) |
+| *"**modo vim** borrar línea"* | pulsa `Esc d d` en la ventana con foco (nvim: borra la línea) |
+| *"**modo vim** guardar"* | pulsa `Esc :w Enter` (~20 frases: deshacer, buscar, salir…) |
+| *"**modo programar** const a es igual a entre comillas hello world cierra comillas punto y coma"* | pega `const a = "hello world";` |
 | *"hola mundo **entre comillas**"* | "hola mundo" |
 | *"pon commit **KX minúsculas**"* | pon commit kx (minusculiza la palabra anterior) |
 | *"… **nueva línea** …"* / *"… **punto y aparte** …"* | salto de línea |
 
 Los comandos de final de frase solo actúan **al final**: *"borra eso del config"* se escribe normal. Cambia o desactiva las palabras en `[commands]`.
+
+**vim** envía pulsaciones de teclas a la ventana con foco (no detecta si es nvim; el `Esc`
+inicial de cada secuencia lo salva desde cualquier modo). Las teclas son FÍSICAS, pre-layout:
+configura `vim_layout = "us" | "es"` en `[commands]` según tu teclado — si al dictar
+«modo vim buscar» sale otro símbolo (p. ej. `-`), es que el layout no coincide. Amplía o
+redefine las frases en `vim_map` (se merge con las de serie); un token ilegal se ignora con
+log y la frase se escribe tal cual. Solo letras, dígitos, `enter`, `esc`… y los lógicos
+`slash`/`colon`; `ctrl+r`, `shift+g` para combos.
+
+**programar** pega código de una línea: símbolos con su espaciado (`es igual a` → ` = `,
+`punto y coma` → `;`), números en dígitos (`tres` → `3`) y comillas a toggle explícito:
+«entre comillas» abre, «cierra comillas» cierra — si no dictas el cierre, queda abierta.
+El orden de prefijos: interrogante/envía → código → ruta → vim → programar (gana el
+primero). Ojo: «entre comillas» al FINAL de todo el dictado es el comando de sufijo y
+gana (envuelve la frase en comillas); dentro de programar, cierra con «cierra comillas».
+
+Si personalizas `stt.vocabulary` en tu config, **reemplaza** la lista de serie: copia las
+palabras de «ruta»/«vim»/«programar» que uses (están en `config.example.toml`).
 
 ## Configuración
 

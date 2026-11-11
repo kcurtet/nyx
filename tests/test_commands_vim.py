@@ -151,3 +151,12 @@ def test_programar_operadores_y_pegados():
 
 def test_programar_en_config_por_defecto():
     assert DEFAULTS["commands"]["code_line_words"] == ["programar", "modo programar"]
+
+
+def test_vocabulario_cubre_los_mapas():  # D4: las palabras nuevas en el vocabulary default
+    from nyx.commands import _CODE_SYMBOLS, _fold
+
+    vocab = {_fold(w) for w in DEFAULTS["stt"]["vocabulary"]}
+    assert {_fold(w) for w in CMD["vim_map"]} <= vocab
+    assert {_fold(w) for w in _CODE_SYMBOLS} <= vocab
+    assert {_fold(w) for w in CMD["vim_words"] + CMD["code_line_words"]} <= vocab

@@ -48,10 +48,26 @@ DEFAULTS: dict = {
         "compute_type": "auto",  # auto → float16 en GPU, int8 en CPU
         "language": "es",
         "beam_size": 5,
-        # Palabras del comando «ruta» (símbolos hablados de paths), para que Whisper las espere.
+        # Palabras de los comandos «ruta» (símbolos de paths), «vim» (frases del mapa)
+        # y «programar» (símbolos y números), para que Whisper las espere.
         "vocabulary": [
             "ruta", "tilde", "barra", "contrabarra", "barra invertida", "punto", "guion",
             "guion bajo", "bajo", "dos puntos", "espacio", "arroba",
+            "vim", "modo vim", "borrar línea", "borrar palabra", "borrar carácter",
+            "copiar línea", "pegar", "deshacer", "rehacer", "insertar",
+            "insertar al final", "insertar línea abajo", "insertar línea arriba",
+            "siguiente palabra", "buscar", "buscar y reemplazar", "línea de comando",
+            "guardar", "salir", "guardar y salir", "forzar salir",
+            "principio del fichero", "final del fichero",
+            "programar", "modo programar", "es igual a", "no igual a", "distinto de",
+            "mayor que", "menor que", "mayor o igual", "menor o igual", "flecha",
+            "entre comillas", "cierra comillas", "entre comillas simples",
+            "cierra comillas simples", "punto y coma", "coma", "más", "por", "entre",
+            "por ciento", "barra vertical", "ampersand",
+            "cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho",
+            "nueve", "diez", "once", "doce", "trece", "catorce", "quince", "dieciséis",
+            "diecisiete", "dieciocho", "diecinueve", "veinte", "treinta", "cuarenta",
+            "cincuenta", "sesenta", "setenta", "ochenta", "noventa", "cien", "mil",
         ],
     },
     "replacements": {},

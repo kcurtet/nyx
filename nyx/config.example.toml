@@ -31,9 +31,12 @@ vocabulary = [
   "npm", "pnpm", "uv", "API", "endpoint", "JSON", "YAML", "TOML", "README",
   "refactor", "debug", "bug", "fix", "test", "commit", "issue", "Ollama", "llama.cpp",
   "pi", "Claude", "prompt", "LLM", "Linux", "Wayland", "KDE", "systray",
-  # Símbolos hablados del comando «ruta» (ver [commands])
+  # Símbolos hablados de los comandos «ruta» / «vim» / «programar» (ver [commands])
   "ruta", "tilde", "barra", "contrabarra", "barra invertida", "punto", "guion",
   "guion bajo", "bajo", "dos puntos", "espacio", "arroba",
+  "vim", "modo vim", "borrar línea", "guardar", "buscar", "deshacer",
+  "programar", "modo programar", "es igual a", "entre comillas", "cierra comillas",
+  "punto y coma", "más", "por", "por ciento", "guion", "uno", "dos", "tres",
 ]
 
 # Correcciones exactas (sin distinguir mayúsculas, por palabra completa).
@@ -68,6 +71,9 @@ vocabulary = [
 #   Símbolos de «ruta»: tilde ~ · barra / · contrabarra \ barra invertida \ · punto .
 #                       guion - · guion bajo/bajo _ · dos puntos : · arroba @ ·
 #                       espacio → un espacio real (el resto se pega SIN espacios)
+#                "modo vim borrar línea"  →  pulsa Esc d d en la ventana con foco
+#                "modo programar const a es igual a entre comillas hola cierra comillas punto y coma"
+#                                  →  const a = "hola";
 # En medio:      "nueva línea", "punto y aparte"
 # Para desactivar uno, déjalo vacío: send_words = []
 question_words = ["interrogante", "signo de interrogación"]
@@ -81,6 +87,23 @@ code_words = ["código"]
 path_words = ["ruta"]
 newline_words = ["nueva línea", "salto de línea"]
 paragraph_words = ["punto y aparte"]
+
+# «vim»: frase → secuencia de teclas para la ventana CON FOCO (nvim, terminales, editores).
+# TODAS las secuencias empiezan con esc (salva desde insert/command mode). Los comandos
+# "abiertos" (buscar, línea de comando) dejan a nvim esperando: dictas el resto después.
+# Tokens: letra, dígito o enter esc semicolon dot slash colon backspace tab space
+#         left right up down home end delete insert pageup pagedown; combos con +: ctrl+r.
+# / y : NO son inyectables como texto: usa los lógicos slash/colon (vim_layout los resuelve).
+vim_words = ["vim", "modo vim"]
+vim_layout = "us"   # "us" o "es": cómo se escriben / y : en tu teclado FÍSICO
+# «programar»: código de una línea con símbolos hablados. Comillas a TOGGLE EXPLÍCITO
+# («entre comillas» abre, «cierra comillas» cierra; sin cierre queda abierta),
+# números en dígitos y multi-palabra primero («dos puntos» gana a «dos»).
+code_line_words = ["programar", "modo programar"]
+# Amplía o redefine vim_map (se MERGE con el mapa de serie; tus frases ganan):
+[commands.vim_map]
+"insertar al final" = "esc shift+s"   # redefinida (mayúscula = shift+letra, no letra suelta)
+"duplicar línea" = "esc y y p"        # añadida (yy + p)
 
 [llm]
 # Segunda pasada con un LLM local que corrige SOLO términos técnicos.
