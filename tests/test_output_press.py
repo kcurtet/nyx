@@ -94,3 +94,35 @@ def test_app_comprueba_keys_antes_de_discard():  # C2: la rama keys ANTES que di
 
     src = Path(nyx.app.__file__).read_text()
     assert src.index("if res.keys:") < src.index("if res.discard:")
+
+
+def test_pynput_alias_de_simbolos(monkeypatch):
+    """pynput.keyboard.Key no tiene semicolon/dot/slash (son chars vía KeyCode) ni pageup/pagedown
+    (se llaman page_up/page_down): _k debe resolverlos o los mapeos vim con colon/slash fallan (D6)."""
+    import sys
+    import types
+
+    kb = types.ModuleType("pynput.keyboard")
+
+    class Key:  # fiel al enum real: sin semicolon/dot/slash/pageup/pagedown
+        enter = "enter"
+        esc = "esc"
+        insert = "insert"
+        page_up = "page_up"
+        page_down = "page_down"
+
+    kb.Controller = lambda: None
+    kb.Key = Key
+    fake = types.ModuleType("pynput")
+    fake.keyboard = kb
+    monkeypatch.setitem(sys.modules, "pynput", fake)
+    monkeypatch.setitem(sys.modules, "pynput.keyboard", kb)
+
+    from nyx.output import PynputKeys
+
+    pk = PynputKeys()
+    assert pk._k("semicolon") == ";"
+    assert pk._k("dot") == "."
+    assert pk._k("slash") == "/"
+    assert pk._k("pageup") == "page_up"
+    assert pk._k("pagedown") == "page_down"

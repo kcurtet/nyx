@@ -195,7 +195,11 @@ class PynputKeys:
         self.kb, self.Key = Controller(), Key
 
     def _k(self, name):
-        alias = {"ctrl": "ctrl", "shift": "shift", "alt": "alt", "super": "cmd", "insert": "insert", "enter": "enter"}
+        # pynput.keyboard.Key no tiene semicolon/dot/slash (son chars vía KeyCode, que su Controller
+        # normaliza) ni pageup/pagedown (se llaman page_up/page_down) — alias para el set de press (D6)
+        alias = {"ctrl": "ctrl", "shift": "shift", "alt": "alt", "super": "cmd", "insert": "insert",
+                 "enter": "enter", "semicolon": ";", "dot": ".", "slash": "/",
+                 "pageup": "page_up", "pagedown": "page_down"}
         n = alias.get(name, name)
         return getattr(self.Key, n) if len(n) > 1 else n
 

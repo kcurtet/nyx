@@ -29,3 +29,7 @@ Task 5: complete (commit b67aa03, tests: `uv run pytest tests/test_commands_vim.
 ## Verificación final manual — PENDIENTE para el humano (NO ejecutada)
 
 Con el servicio actualizado y nvim con foco: «modo vim borrar línea» borra; «modo vim guardar» guarda; en cualquier editor, «modo programar const a es igual a entre comillas hello world cierra comillas punto y coma» pega `const a = "hello world";`. Probar `vim_layout = "es"` con teclado ES si toca. Evidencia automática: 252 passed (Linux) + ruff limpio; C1 (dictado normal intacto) cubierto por la suite existente.
+
+## Review fixes
+
+- fix(output): alias de símbolos en PynputKeys._k (semicolon/dot/slash como chars; pageup/pagedown → page_up/page_down) — hallazgo único del eje Spec (FIX-FIRST): el enum de pynput no tiene esos nombres y 7 mapeos vim fallaban por token en Windows. Test test_pynput_alias_de_simbolos con fake fiel del enum (visto fallar con AttributeError). Suite 253 passed + ruff limpio.
