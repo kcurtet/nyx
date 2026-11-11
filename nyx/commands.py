@@ -84,6 +84,75 @@ def _join_path(body: str) -> str:
     return "".join(out)
 
 
+# Símbolos hablados del comando «programar» (spec 007): (pegado, espacio_antes, espacio_después).
+# Multi-palabra gana (ventana 3→2→1): "dos puntos" a "dos", "por ciento" a "por".
+# Las claves se pliegan (sin tildes) para el matching, como todo el sistema.
+_CODE_SYMBOLS = {_fold(k): v for k, v in {
+    # comparadores: espacios a ambos lados
+    "es igual a": ("=", True, True),
+    "no igual a": ("!=", True, True),
+    "distinto de": ("!=", True, True),
+    "mayor que": (">", True, True),
+    "menor que": ("<", True, True),
+    "mayor o igual": (">=", True, True),
+    "menor o igual": ("<=", True, True),
+    "flecha": ("=>", True, True),
+    # comillas TOGGLE EXPLÍCITO, sin auto-cierre: «entre…» abre, «cierra…» cierra
+    "entre comillas": ('"', True, False),
+    "cierra comillas": ('"', False, True),
+    "entre comillas simples": ("'", True, False),
+    "cierra comillas simples": ("'", False, True),
+    # puntuación pegada: sin espacio antes, un espacio después
+    "punto y coma": (";", False, True),
+    "dos puntos": (":", False, True),
+    "coma": (",", False, True),
+    "punto": (".", False, True),
+    # aritméticos y otros (los de identificador, pegados a ambos lados)
+    "más": ("+", True, True),
+    "por": ("*", True, True),
+    "entre": ("/", True, True),
+    "guion bajo": ("_", False, False),
+    "guion": ("-", False, False),
+    "por ciento": ("%", False, False),
+    "barra vertical": ("|", False, False),
+    "ampersand": ("&", False, False),
+    # números → dígitos (compuestos como «veintitrés» fuera de v1), espaciados como palabras
+    **{w: (str(n), True, True) for w, n in {
+        "cero": 0, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5, "seis": 6,
+        "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11, "doce": 12,
+        "trece": 13, "catorce": 14, "quince": 15, "dieciséis": 16, "diecisiete": 17,
+        "dieciocho": 18, "diecinueve": 19, "veinte": 20, "treinta": 30, "cuarenta": 40,
+        "cincuenta": 50, "sesenta": 60, "setenta": 70, "ochenta": 80, "noventa": 90,
+        "cien": 100, "mil": 1000,
+    }.items()},
+}.items()}
+
+
+def _join_code(body: str) -> str:
+    """Cuerpo de «programar …»: símbolos hablados con su espaciado + palabras tal cual,
+    unidas con UN espacio salvo junto a los pegados (comillas, «;», guion bajo…)."""
+    words = [w for w in (w.strip(".,;:!¡¿…\"'«»()") for w in body.split()) if w]
+    folds = [_fold(w) for w in words]
+    pieces = []  # (texto, espacio_antes, espacio_después)
+    i = 0
+    while i < len(words):
+        for n in (3, 2, 1):
+            key = " ".join(folds[i:i + n])
+            if i + n <= len(words) and key in _CODE_SYMBOLS:
+                pieces.append(_CODE_SYMBOLS[key])
+                i += n
+                break
+        else:
+            pieces.append((words[i], True, True))
+            i += 1
+    out = ""
+    for j, (txt, before, _after) in enumerate(pieces):
+        if j and (pieces[j - 1][2] and before):
+            out += " "
+        out += txt
+    return out
+
+
 # ------------------------------------------------------------- vim por voz
 # Gramática LÉXICA de los tokens de vim_map (commands.py no ve la capa de teclas):
 # token = cuerpo o mod+cuerpo (mod repetible); cuerpo = 1 alfanumérico ASCII o nombre conocido.
@@ -226,6 +295,14 @@ def parse(text: str, commands: dict) -> Result:
             if tokens is not None:
                 return Result("", discard=True, keys=tokens)
         break  # prefijo reconocido pero frase fuera del mapa: se escribe tal cual
+
+    # ---- al principio: "programar const a es igual a …" → código de una línea (tras «vim»).
+    # Modo propio: EXENTO de _lowercase_prev/_inline (retorno temprano, D3);
+    # conserva res.send si peló un sufijo «envía».
+    for w in sorted(commands.get("code_line_words") or [], key=len, reverse=True):
+        m = re.match(r"[\s¿¡]*" + re.escape(_fold(w)) + r"[\s,;:.]+", _fold(res.text))
+        if m and res.text[m.end():].strip(_PUNCT):
+            return Result(_join_code(res.text[m.end():].rstrip(_PUNCT)), send=res.send)
 
     # ---- en cualquier sitio
     res.text = _lowercase_prev(res.text, commands.get("lowercase_words") or [])

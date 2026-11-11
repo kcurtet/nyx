@@ -84,3 +84,70 @@ def test_vim_no_interfiere_con_codigo_y_ruta():  # orden de prefijos: código �
     assert p("código git status").text == "`git status`"
     assert p("código modo vim guardar").text == "`modo vim guardar`"
     assert p("ruta tilde barra dev").text == "~/dev"
+
+
+# ------------------------------------------- «programar»: código de una línea (spec 007)
+def test_programar_linea_completa():  # B1
+    r = p("modo programar const a es igual a entre comillas hello world cierra comillas punto y coma")
+    assert (r.text, r.send, r.discard, r.keys) == ('const a = "hello world";', False, False, None)
+
+
+def test_programar_con_numeros():  # B2: números del mapa, palabras tal cual
+    assert p("programar si x mayor que tres devuelve verdadero").text == "si x > 3 devuelve verdadero"
+
+
+def test_programar_comilla_abierta():  # B3: toggle explícito, no adivina el cierre
+    assert p("programar const a es igual a entre comillas hola punto y coma").text == 'const a = "hola;'
+
+
+def test_programar_fold():  # B4: matching plegado, grafía original conservada
+    assert p("PROGRAMAR Guión Bajo x").text == "_x"
+
+
+def test_prioridad_codigo_y_ruta():  # B5: gana el primero (código → ruta → vim → programar)
+    assert p("código git status").text == "`git status`"
+    assert p("ruta tilde barra dev").text == "~/dev"
+    assert p("código programar x").text == "`programar x`"
+    r = p("ruta programar x")  # «ruta» gana: se pega como path sin espacios
+    assert r.text == "programarx"
+
+
+def test_programar_sin_cuerpo():  # B6
+    r = p("modo programar")
+    assert (r.text, r.send, r.discard) == ("modo programar", False, False)
+
+
+def test_programar_dos_puntos_gana_a_dos():  # B7: multi-palabra primero
+    assert p("programar dos puntos").text == ":"
+    assert p("programar x guion bajo dos").text == "x_2"  # y el número pega al guion bajo
+
+
+def test_programar_exento_de_inline():  # D3: «punto y aparte» dentro NO mete salto
+    r = p("programar x punto y aparte y")
+    assert "\n" not in r.text
+    assert r.text == "x. y aparte y"
+
+
+def test_programar_exento_de_lowercase_prev():  # D3: retorno temprano
+    assert p("programar Hola en minúsculas").text == "Hola en minúsculas"
+
+
+def test_programar_sufijo_entre_comillas_al_final():  # trampa documentada (heredada de «ruta»)
+    # El sufijo quote_words se pela ANTES del prefijo y desactiva programar: NO se arregla.
+    assert p("programar di entre comillas").text == '"programar di"'
+
+
+def test_programar_encadena_con_envia():  # el sufijo envía sobrevive al retorno temprano
+    r = p("programar x es igual a tres envía")
+    assert (r.text, r.send) == ("x = 3", True)
+
+
+def test_programar_operadores_y_pegados():
+    assert p("programar x mayor o igual veinte").text == "x >= 20"  # clave de la spec: sin «que»
+    assert p("programar a más b por c").text == "a + b * c"
+    # paréntesis NO en v1: la palabra pasa tal cual
+    assert p("programar f abra paréntesis x").text == "f abra paréntesis x"
+
+
+def test_programar_en_config_por_defecto():
+    assert DEFAULTS["commands"]["code_line_words"] == ["programar", "modo programar"]
