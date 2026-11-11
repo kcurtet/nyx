@@ -53,7 +53,7 @@ DEFAULTS: dict = {
         "vocabulary": [
             "ruta", "tilde", "barra", "contrabarra", "barra invertida", "punto", "guion",
             "guion bajo", "bajo", "dos puntos", "espacio", "arroba",
-            "vim", "modo vim", "borrar línea", "borrar palabra", "borrar carácter",
+            "vim", "modo vim", "bim", "modo bim", "beam", "modo beam", "borrar línea", "borrar palabra", "borrar carácter",
             "copiar línea", "pegar", "deshacer", "rehacer", "insertar",
             "insertar al final", "insertar línea abajo", "insertar línea arriba",
             "siguiente palabra", "buscar", "buscar y reemplazar", "línea de comando",
@@ -86,7 +86,7 @@ DEFAULTS: dict = {
         # TODAS las secuencias empiezan con esc (salva desde insert/command mode).
         # Tokens lógicos «slash»/«colon» los resuelve vim_layout; % y ! son shift+5/shift+1
         # (universales en US y ES). El mapa del usuario se MERGE con este (gana por frase).
-        "vim_words": ["vim", "modo vim"],
+        "vim_words": ["vim", "modo vim", "bim", "modo bim", "beam", "modo beam"],  # /bim/ fonético
         "vim_layout": "us",  # us | es (cómo se escriben / y : en tu teclado físico)
         "vim_map": {
             "borrar línea": "esc d d",

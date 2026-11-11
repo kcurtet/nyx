@@ -160,3 +160,9 @@ def test_vocabulario_cubre_los_mapas():  # D4: las palabras nuevas en el vocabul
     assert {_fold(w) for w in CMD["vim_map"]} <= vocab
     assert {_fold(w) for w in _CODE_SYMBOLS} <= vocab
     assert {_fold(w) for w in CMD["vim_words"] + CMD["code_line_words"]} <= vocab
+
+
+def test_vim_variantes_foneticas_whisper():  # en español, «vim» se oye /bim/ → bim/beam
+    assert p("modo bim borrar línea").keys == ["esc", "d", "d"]
+    assert p("Modo Beam, insertar").keys == ["esc", "i"]
+    assert p("bim guardar y salir").keys == ["esc", "shift+semicolon", "w", "q", "enter"]
