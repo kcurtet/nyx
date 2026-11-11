@@ -85,3 +85,12 @@ def test_c2_parse_produce_keys_y_press_los_ejecuta():  # C2 unit: parse → pres
     k = FakeKeys()
     out_with(k).press(r.keys)
     assert k.combos == ["esc", "d", "d"]
+
+
+def test_app_comprueba_keys_antes_de_discard():  # C2: la rama keys ANTES que discard (si no, muerta)
+    from pathlib import Path
+
+    import nyx.app
+
+    src = Path(nyx.app.__file__).read_text()
+    assert src.index("if res.keys:") < src.index("if res.discard:")

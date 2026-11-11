@@ -130,6 +130,10 @@ def run():
             if text != raw or res.send or res.discard:
                 flags = (" [envía]" if res.send else "") + (" [descartado]" if res.discard else "")
                 log(f"[fix {time.monotonic() - t1:.2f}s] {text!r}{flags}")
+            if res.keys:  # «vim»: ANTES que discard (si no, la rama sería muerta)
+                out.press(res.keys)
+                ui.call(ui.done, f"⌨ {' '.join(res.keys)}")
+                return
             if res.discard:
                 ui.call(ui.done, "descartado")
                 return
