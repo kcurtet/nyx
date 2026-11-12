@@ -20,7 +20,12 @@ propio proceso y el assert inmediato tenía una carrera — coste: helper de 7 l
 
 ## Task 2: integración — choose_backend, _pick, supervisor, doctor
 
-Pendiente.
+Complete (48e8f5e, 4 tests nuevos: choose_backend_efimero / pick_registra_efimero /
+supervisor_no_lanza_con_efimero / doctor_rama_efimero → 265 passed, ruff limpio).
+
+Ruling: supervisor — extraído el cuerpo del ciclo a `Orchestrator._supervise_once()`
+(tri-estado True/False/None para conservar el backoff exacto de hoy) en vez de patchear
+time.sleep en el test — coste: refactor de 15 líneas, loop intacto semánticamente.
 
 ## Task 3: rotación de sesión (diaria + botón tray)
 

@@ -73,6 +73,9 @@ def _doctor_orders(r: Report, oc: dict) -> None:
     if kind == "pi":
         r.ok("pi en segundo plano (sin herdr)", "funciona igual, pero sin paneles ni avisos de tus agentes de herdr")
         return
+    if kind == "efimero":
+        r.ok("pi efímero", "arranca con cada orden; memoria en el fichero de sesión")
+        return
     r.ok("herdr + pi", "en su propio workspace; vigila a tus agentes con pi-herdr")
     if o._SERVER_STARTED_BY_NYX:  # choose_backend puede arrancar el server como efecto colateral (D5)
         r.ok("herdr server arrancado por nyx", "estará en marcha aunque cierres todas las terminales")

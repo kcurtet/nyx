@@ -1,14 +1,17 @@
 """Órdenes por voz: "Nyx, …" va a la orquestadora (una sesión de pi) en vez de pegarse.
 
-Dos formas de tenerla en marcha (backend):
-  herdr: en su propio workspace de herdr — ves lo que hace y puede vigilar a tus agentes
-         (pi-herdr en modo global).
-  pi:    sin herdr — pi en segundo plano (`pi --mode rpc`) gestionado por el servicio de nyx.
-         Mismas capacidades salvo los paneles y los agentes de herdr.
+Tres formas de tenerla (backend):
+  herdr:   en su propio workspace de herdr — ves lo que hace y puede vigilar a tus agentes
+           (pi-herdr en modo global).
+  pi:      sin herdr — pi en segundo plano (`pi --mode rpc`) gestionado por el servicio de nyx.
+           Mismas capacidades salvo los paneles y los agentes de herdr.
+  efimero: nada encendido — cada orden arranca un `pi -p` one-shot (misma sesión en fichero,
+           --continue), la respuesta se lee en voz alta desde el servicio y pi muere.
 auto (por defecto): herdr si está instalado (nyx arranca su servidor si hace falta);
 si no puede, pi; sin pi → no disponible.
 
-El servicio la arranca solo y la vuelve a levantar si se cae (Supervisor).
+El servicio la arranca solo y la vuelve a levantar si se cae (Supervisor; con efimero no
+hay nada residente que levantar).
 """
 from __future__ import annotations
 
@@ -212,6 +215,8 @@ def choose_backend(cfg: dict) -> tuple[str | None, str]:
     want = cfg.get("backend", "auto")
     if not shutil.which("pi"):
         return None, "Nyx no está disponible: falta pi. Instálalo para poder darme órdenes."
+    if want == "efimero":
+        return "efimero", ""  # sin proceso residente: las órdenes la arrancan
     if want == "herdr":
         if not shutil.which("herdr"):
             return None, "Nyx está configurada con herdr, pero herdr no está instalado."
@@ -461,10 +466,11 @@ class EfimeroBackend:
 class Orchestrator:
     """Fachada: elige el backend, envía órdenes y (con start_supervisor) la mantiene viva."""
 
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: dict, on_say=None):
         self.cfg = cfg
         self.agent = cfg["agent"]
         self.title = self.agent[:1].upper() + self.agent[1:]
+        self.on_say = on_say  # (texto, brief=…): solo lo usa el backend efímero (su voz es el servicio)
         self.backend = None
         self.reason = ""
         self._pick()
@@ -474,7 +480,10 @@ class Orchestrator:
         if kind != getattr(self.backend, "name", None):
             if self.backend:
                 self.backend.stop()
-            self.backend = {"herdr": HerdrBackend, "pi": PiRpcBackend}.get(kind, lambda _c: None)(self.cfg)
+            makers = {"herdr": HerdrBackend, "pi": PiRpcBackend,
+                      "efimero": lambda c: EfimeroBackend(c, on_say=self.on_say)}
+            make = makers.get(kind)
+            self.backend = make(self.cfg) if make else None
 
     @property
     def kind(self) -> str | None:
@@ -509,16 +518,16 @@ class Orchestrator:
             self.backend.stop()
 
     def start_supervisor(self, every: float = 20.0) -> None:
-        """Arranca a Nyx y la vuelve a levantar si desaparece (con espera tras un fallo)."""
+        """Arranca a Nyx y la vuelve a levantar si desaparece (con espera tras un fallo).
+        Con el backend efímero no hay nada que lanzar (status() nunca es None) y el ciclo
+        queda en no-op, como debe ser."""
 
         def loop():
             backoff = 0.0
             while True:
                 try:
-                    self._pick()  # p.ej. herdr arrancó o se cerró: cambiar de backend
-                    if self.backend and self.backend.status() is None:
-                        ok, msg = self.backend.launch()
-                        log(f"[orden] {'arrancada' if ok else 'no arrancó'} ({self.kind}): {msg}")
+                    ok = self._supervise_once()
+                    if ok is not None:
                         backoff = 0.0 if ok else min(300.0, (backoff or 30.0) * 2)
                 except Exception as e:  # noqa: BLE001
                     log(f"[orden] supervisor: {e}")
@@ -526,6 +535,16 @@ class Orchestrator:
                 time.sleep(every + backoff)
 
         threading.Thread(target=loop, daemon=True).start()
+
+    def _supervise_once(self) -> bool | None:
+        """Un ciclo del supervisor: True/False si intentó lanzar (bien/mal); None si no había
+        nada que lanzar. Extraído del loop para poder testearlo sin dormir."""
+        self._pick()  # p.ej. herdr arrancó o se cerró: cambiar de backend
+        if self.backend and self.backend.status() is None:
+            ok, msg = self.backend.launch()
+            log(f"[orden] {'arrancada' if ok else 'no arrancó'} ({self.kind}): {msg}")
+            return ok
+        return None
 
 
 def launch(cfg: dict) -> int:

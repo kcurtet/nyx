@@ -225,6 +225,53 @@ def test_efimero_status_y_stop(tmp_path, monkeypatch):  # A6/A8 + D5: idle/worki
     assert b.status() == "idle"
 
 
+def test_choose_backend_efimero(monkeypatch):  # A7: ("efímero", "") y los demás intactos
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/pi" if c == "pi" else None)
+    assert o.choose_backend({**CFG, "backend": "efimero"}) == ("efimero", "")
+    has = {"pi": True, "herdr": True, "ensure": True}
+    monkeypatch.setattr(o.shutil, "which", lambda c: f"/usr/bin/{c}" if has.get(c) else None)
+    monkeypatch.setattr(o, "_ensure_herdr_server", lambda timeout=8.0: (has["ensure"], ""))
+    assert o.choose_backend(CFG) == ("herdr", "")  # auto/herdr/pi siguen igual
+    has["ensure"] = False
+    assert o.choose_backend(CFG) == ("pi", "")
+    has["ensure"] = True
+    assert o.choose_backend({**CFG, "backend": "herdr"}) == ("herdr", "")
+    has["pi"] = False
+    kind, why = o.choose_backend({**CFG, "backend": "efimero"})  # efimero también requiere pi
+    assert kind is None and "falta pi" in why
+
+
+def test_pick_registra_efimero(monkeypatch):  # D2/D3: _pick construye EfimeroBackend con on_say
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/pi" if c == "pi" else None)
+    cb = lambda t, brief=False: None  # noqa: E731
+    orch = o.Orchestrator({**CFG, "backend": "efimero"}, on_say=cb)
+    assert isinstance(orch.backend, o.EfimeroBackend)
+    assert orch.kind == "efimero" and orch.backend.on_say is cb
+    orch2 = o.Orchestrator({**CFG, "backend": "efimero"})  # sin callback: solo log
+    assert isinstance(orch2.backend, o.EfimeroBackend) and orch2.backend.on_say is None
+
+
+def test_supervisor_no_lanza_con_efimero(monkeypatch):  # A5: status nunca None → cero lanzamientos
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/pi" if c == "pi" else None)
+    orch = o.Orchestrator({**CFG, "backend": "efimero"})
+    lanzados = []
+    monkeypatch.setattr(o.EfimeroBackend, "launch", lambda self: lanzados.append(1) or (True, "x"))
+    for _ in range(3):  # un ciclo completo sin órdenes (y sin dormir: tick a tick)
+        assert orch._supervise_once() is None
+    assert not lanzados
+    assert orch.backend.status() == "idle"  # sigue disponible, no rotó a None
+
+
+def test_doctor_rama_efimero(capsys, monkeypatch):  # D8: honesto, sin "en marcha" residente
+    from nyx import doctor as d
+
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/pi" if c == "pi" else None)
+    d._doctor_orders(d.Report(), {**CFG, "backend": "efimero"})
+    out = capsys.readouterr().out
+    assert "pi efímero" in out and "cada orden" in out
+    assert "en marcha" not in out  # nada residente que "arrancar"
+
+
 def test_args_sin_herdr():
     args = o.pi_args_for(CFG, with_herdr=False)
     assert "--no-extensions" in args and not any("herdr" in a for a in args)
