@@ -105,12 +105,14 @@ def find_pi_package(name: str) -> Path | None:
     return None
 
 
-def pi_args_for(cfg: dict, with_herdr: bool = True) -> list[str]:
+def pi_args_for(cfg: dict, with_herdr: bool = True, voice: bool = True) -> list[str]:
     """Argumentos de pi para la orquestadora.
 
     isolated (por defecto): sin extensiones ni skills del usuario (nada de formularios
     interactivos que no se pueden contestar por voz, menos contexto), solo:
     [integración de estado de herdr + pi-herdr (modo global)] + su voz.
+    voice=False (backend efímero): sin voice.ts — la respuesta la lee el propio backend
+    (on_say); cargada, habría doble voz.
     """
     args = ["--skill", str(AGENT_DIR)]
     if cfg.get("isolated", True):
@@ -132,7 +134,7 @@ def pi_args_for(cfg: dict, with_herdr: bool = True) -> list[str]:
                 args += ["-e", str(ext)]
             else:
                 log(f"[orden] extensión '{name}' no instalada (pi install npm:{name}); se omite")
-    args += ["-e", str(AGENT_DIR / "voice.ts")]
+    args += ["-e", str(AGENT_DIR / "voice.ts")] if voice else []
     if cfg.get("model"):
         args += ["--model", cfg["model"]]
     return args
@@ -367,6 +369,87 @@ class PiRpcBackend:
 
     def stop(self) -> None:
         if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+
+
+# ------------------------------------------------------------ pi efímero
+class EfimeroBackend:
+    """pi solo mientras trabaja: cada orden arranca un `pi -p` one-shot con la memoria en
+    fichero (mismo --session-dir + --continue que el backend pi), lee la respuesta en voz
+    alta (on_say, brief) y muere. Nada residente: "idle" = en reposo (disponible), no caído.
+
+    La voz la pone el propio backend (pi_args_for voice=False): sin voice.ts habría doble
+    lectura. cwd pinneado a Path.home(): pi agrupa las sesiones por cwd y sin pinneo la
+    memoria puede romperse entre reinicios del servicio. La respuesta de `pi -p` llega
+    completa en stdout; exit != 0 con texto parcial (stop length) también se lee.
+    """
+
+    name = "efimero"
+    MSG_ERROR = "No he podido ejecutar la orden."
+
+    def __init__(self, cfg: dict, on_say=None):
+        self.cfg = cfg
+        self.agent = cfg["agent"]
+        self.title = self.agent[:1].upper() + self.agent[1:]
+        self.on_say = on_say  # (texto, brief=…) — la voz del servicio; los otros backends la ignoran
+        self.proc: subprocess.Popen | None = None
+        self.lock = threading.Lock()
+        self.sessions = STATE_DIR / f"{self.agent}-sessions"
+        self.stopping = False  # stop() del servicio: el lector no debe dar voz de error
+
+    def _alive(self) -> bool:
+        return self.proc is not None and self.proc.poll() is None
+
+    def status(self) -> str | None:
+        return "working" if self._alive() else "idle"  # NUNCA None: no hay nada que lanzar
+
+    def launch(self) -> tuple[bool, str]:
+        return True, f"{self.title} lista; las órdenes la arrancan. Dile: «{self.title}, …»"
+
+    def send(self, order: str) -> tuple[bool, str]:
+        with self.lock:
+            if self._alive():
+                return False, f"{self.title} está ocupada, espera a que termine."
+            self.sessions.mkdir(parents=True, exist_ok=True)
+            # Opciones ANTES de «--»: para pi, todo lo que sigue a «--» es posicional (la orden)
+            # — así las órdenes que empiecen por «-» no se comen las opciones.
+            args = ["pi", "-p", "--session-dir", str(self.sessions), "--continue",
+                    *pi_args_for(self.cfg, with_herdr=False, voice=False), "--", order]
+            errlog = open(STATE_DIR / f"{self.agent}-pi.log", "ab")
+            try:
+                self.proc = subprocess.Popen(args, cwd=Path.home(), env=clean_child_env(), text=True,
+                                             stdout=subprocess.PIPE, stderr=errlog)
+            except OSError as e:
+                errlog.close()
+                return False, f"No he podido arrancar pi: {e}"
+            log(f"[orden] {self.title} trabajando (pi -p one-shot, sesión {self.sessions})")
+        threading.Thread(target=self._read_answer, args=(self.proc, errlog), daemon=True).start()
+        return True, ""
+
+    def _read_answer(self, proc: subprocess.Popen, errlog) -> None:
+        out, _ = proc.communicate()
+        errlog.close()
+        text = (out or "").strip()
+        if self.stopping:  # stop(): el proceso murió porque el servicio se apaga, no es un error
+            return
+        if proc.returncode == 0 or text:  # exit != 0 CON texto (stop length): es la respuesta que dio
+            self._say(text or self.MSG_ERROR)
+        else:
+            self._say(self.MSG_ERROR)
+
+    def _say(self, text: str) -> None:
+        if self.on_say:
+            self.on_say(text, brief=True)
+        else:
+            log(f"[orden] {self.title}: {text[:200]}")
+
+    def stop(self) -> None:
+        self.stopping = True
+        if self._alive():
             self.proc.terminate()
             try:
                 self.proc.wait(timeout=5)

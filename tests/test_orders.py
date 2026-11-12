@@ -89,10 +89,155 @@ def test_backend_pi_rpc(tmp_path, monkeypatch):
     assert json.dumps  # usado por el pi falso
 
 
+FAKE_PI_P = r'''#!/usr/bin/env python3
+import json, os, sys, time
+if os.environ.get("NYX_FAKE_LOG"):
+    with open(os.environ["NYX_FAKE_LOG"], "a") as f:
+        f.write(json.dumps({"argv": sys.argv[1:], "cwd": os.getcwd()}) + "\n")
+time.sleep(float(os.environ.get("NYX_FAKE_SLEEP", "0")))
+rc = int(os.environ.get("NYX_FAKE_RC", "0"))
+out = os.environ.get("NYX_FAKE_OUT", "hecho")
+if out:
+    print(out, flush=True)
+sys.exit(rc)
+'''
+
+
+def _fake_pi_oneshot(tmp_path, monkeypatch, **env):
+    """pi falso para el backend efímero: loggea argv+cwd en NYX_FAKE_LOG y responde según
+    NYX_FAKE_OUT / NYX_FAKE_RC / NYX_FAKE_SLEEP (patrón FAKE_PI: nunca un pi real en CI)."""
+    fake = tmp_path / "bin" / "pi"
+    fake.parent.mkdir(exist_ok=True)
+    fake.write_text(FAKE_PI_P)
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(o, "STATE_DIR", tmp_path / "state")
+    (tmp_path / "state").mkdir(exist_ok=True)
+    log = tmp_path / "spawns.jsonl"
+    monkeypatch.setenv("NYX_FAKE_LOG", str(log))
+    for k, v in env.items():
+        monkeypatch.setenv(k, str(v))
+    return log
+
+
+def _said(said, n=1, deadline=5.0):
+    """Espera (sin dormir de más) a que on_say haya sido llamado n veces."""
+    end = time.time() + deadline
+    while time.time() < end:
+        if len(said) >= n:
+            return said[:n]
+        time.sleep(0.05)
+    raise AssertionError(f"on_say llamado {len(said)} veces, esperaba {n}")
+
+
+def _spawns(log):
+    return [json.loads(line) for line in log.read_text().splitlines()]
+
+
+def _wait_spawns(log, n=1, deadline=5.0):
+    """Espera a que el pi falso haya loggeado n spawns (arranca en su propio proceso)."""
+    end = time.time() + deadline
+    while time.time() < end:
+        if log.exists() and len(_spawns(log)) >= n:
+            return _spawns(log)
+        time.sleep(0.05)
+    raise AssertionError(f"{len(_spawns(log)) if log.exists() else 0} spawns, esperaba {n}")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_efimero_arranca_y_habla(tmp_path, monkeypatch):  # A1: one-shot con --continue y voz del backend
+    log = _fake_pi_oneshot(tmp_path, monkeypatch)
+    said = []
+    b = o.EfimeroBackend(CFG, on_say=lambda t, brief=False: said.append((t, brief)))
+    ok, msg = b.send("¿qué branch tengo?")
+    assert ok and msg == ""  # no bloquea el hilo de voz
+    text, brief = _said(said)[0]
+    assert text == "hecho" and brief is True  # respuesta SOLO por voz, breve
+    assert b.status() == "idle"  # muere al terminar
+    assert len(_spawns(log)) == 1  # UN pi one-shot
+    argv = _spawns(log)[0]["argv"]
+    assert "-p" in argv and "--continue" in argv
+    assert argv[argv.index("--") + 1] == "¿qué branch tengo?"  # «--» justo antes de la orden
+    assert argv[argv.index("--session-dir") + 1] == str(b.sessions)  # la sesión compartida del backend pi
+    assert not any(a.endswith("voice.ts") for a in argv)  # sin voice.ts: la voz la pone el backend
+    assert _spawns(log)[0]["cwd"] == str(Path.home())  # cwd pinneado (pi agrupa sesiones por cwd)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_efimero_rechaza_ocupada(tmp_path, monkeypatch):  # A2: trabajando → rechazo, sin cola
+    log = _fake_pi_oneshot(tmp_path, monkeypatch, NYX_FAKE_SLEEP="10")
+    b = o.EfimeroBackend(CFG, on_say=lambda t, brief=False: None)
+    ok, _ = b.send("primera")
+    assert ok and b.status() == "working"
+    ok, msg = b.send("segunda")
+    assert not ok and "ocupada" in msg
+    assert len(_wait_spawns(log)) == 1  # NO se lanza otro pi
+    b.stop()
+    assert b.status() == "idle"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_efimero_error_sin_salida(tmp_path, monkeypatch):  # A3: exit != 0 sin stdout → voz de error
+    _fake_pi_oneshot(tmp_path, monkeypatch, NYX_FAKE_RC="1", NYX_FAKE_OUT="")
+    said = []
+    b = o.EfimeroBackend(CFG, on_say=lambda t, brief=False: said.append((t, brief)))
+    assert b.send("explota")[0]
+    text, brief = _said(said)[0]
+    assert text and text != "hecho" and brief is True  # error de una frase, no crash
+    assert b.status() == "idle"  # vuelve a reposo
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_efimero_texto_parcial_se_lee(tmp_path, monkeypatch):  # stop length: exit 1 CON texto
+    _fake_pi_oneshot(tmp_path, monkeypatch, NYX_FAKE_RC="1", NYX_FAKE_OUT="respuesta parcial")
+    said = []
+    b = o.EfimeroBackend(CFG, on_say=lambda t, brief=False: said.append((t, brief)))
+    assert b.send("larga")[0]
+    assert _said(said)[0] == ("respuesta parcial", True)  # es la respuesta que alcanzó a dar
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_efimero_mismo_session_dir(tmp_path, monkeypatch):  # A4: misma sesión y mismo cwd
+    log = _fake_pi_oneshot(tmp_path, monkeypatch)
+    said = []
+    b = o.EfimeroBackend(CFG, on_say=lambda t, brief=False: said.append((t, brief)))
+    assert b.send("una")[0]
+    _said(said)
+    assert b.send("dos")[0]
+    _said(said, n=2)
+    s1, s2 = _spawns(log)
+    assert s1["cwd"] == s2["cwd"] == str(Path.home())
+    sd = s1["argv"][s1["argv"].index("--session-dir") + 1]
+    assert s2["argv"][s2["argv"].index("--session-dir") + 1] == sd
+    assert "--continue" in s2["argv"]  # la segunda retoma la conversación
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_efimero_status_y_stop(tmp_path, monkeypatch):  # A6/A8 + D5: idle/working, nunca None
+    _fake_pi_oneshot(tmp_path, monkeypatch, NYX_FAKE_SLEEP="10")
+    b = o.EfimeroBackend(CFG)
+    assert b.status() == "idle"  # en reposo = disponible, NO None (nada que arrancar)
+    ok, msg = b.launch()  # D5: nada que lanzar; el mismo texto sirve para `nyx agent`
+    assert ok and "Dile" in msg and "arrancan" in msg
+    assert b.send("larga")[0]
+    assert b.status() == "working"
+    b.stop()  # A8: se termina el proceso
+    assert b.status() == "idle"
+
+
 def test_args_sin_herdr():
     args = o.pi_args_for(CFG, with_herdr=False)
     assert "--no-extensions" in args and not any("herdr" in a for a in args)
     assert args[-1].endswith("voice.ts") or "--model" in args
+
+
+def test_args_voice_false_omite_voice_ts():
+    # efímero: sin voice.ts (la voz la pone el backend vía on_say) — con ella, doble lectura
+    args = o.pi_args_for(CFG, with_herdr=False, voice=False)
+    assert not any(a.endswith("voice.ts") for a in args)
+    assert "--skill" in args  # la skill de Nyx sí viaja
+    full = o.pi_args_for(CFG, with_herdr=False)
+    assert str(o.AGENT_DIR / "voice.ts") in full and str(o.AGENT_DIR / "voice.ts") not in args
 
 
 def test_skill_apunta_al_directorio_nuevo():
