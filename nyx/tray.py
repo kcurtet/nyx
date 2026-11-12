@@ -84,6 +84,12 @@ def fetch_status() -> dict | None:
         return None
 
 
+def session_item_visible(status: dict | None) -> bool:
+    """«Sesión nueva» (rotación a mano del backend efímero) solo cuando aplica: el status
+    ya expone nyx.backend (spec 008, D7)."""
+    return ((status or {}).get("nyx") or {}).get("backend") == "efimero"
+
+
 def notify(title: str, body: str = "") -> None:
     if sys.platform.startswith("linux") and shutil.which("notify-send"):
         subprocess.Popen(["notify-send", "-a", "nyx", "-i", "audio-input-microphone", title, body])
@@ -249,6 +255,8 @@ def main() -> int:
         Item(nyx_label, Menu(
             Item("Reiniciar Nyx", agent_restart, enabled=up),
             Item("Ir a su panel", nyx_focus, visible=nyx_in_herdr),
+            Item("Sesión nueva", lambda: send("session", report=True),
+                 visible=lambda _i=None: session_item_visible(current["status"])),
         ), visible=lambda _i=None: bool((current["status"] or {}).get("nyx"))),
         Menu.SEPARATOR,
         Item("Configuración", lambda: open_path(str(config.ensure_config()))),

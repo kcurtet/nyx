@@ -60,7 +60,8 @@ def run():
     out = Output(cfg["output"])
     ui = ui_mod.create(cfg["ui"]["backend"])
     speaker = Speaker(cfg["tts"]) if cfg["tts"]["enabled"] else None
-    orch = Orchestrator(cfg["orders"]) if cfg["orders"]["enabled"] else None
+    orch = (Orchestrator(cfg["orders"], on_say=lambda text, brief=False: say(text, brief=brief))
+            if cfg["orders"]["enabled"] else None)  # say se define luego: closure de ligadura tardía
     lock = threading.Lock()
     state = {"recording": False, "busy": False, "error": "", "gpu_free": False}
     _link_gpu_free(state, stt, speaker)
@@ -339,6 +340,11 @@ def run():
                     _herdr("workspace", "close", ws)
             return orch.launch()[1]
 
+        def session_new(_payload: str = "") -> str:
+            if orch is None:
+                return "Las órdenes están desactivadas ([orders] enabled = false)."
+            return orch.new_session()
+
         ControlServer({"start": start, "stop": stop, "toggle": toggle, "cancel": cancel,
                        "say": say, "say-brief": lambda t: say(t, brief=True),
                        "read": read_selection, "hush": hush, "order": send_order,
@@ -347,6 +353,7 @@ def run():
                        "transcribe": transcribe_req, "status": status,
                        "record-start": record_start, "record-stop": record_stop,
                        "agent-start": agent_start, "agent-restart": agent_restart,
+                       "session": session_new,
                        "ping": lambda: None}).start()
 
     def start_tray():

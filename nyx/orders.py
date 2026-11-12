@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import threading
 import time
+from datetime import date
 from pathlib import Path
 
 from .commands import _fold
@@ -405,6 +406,7 @@ class EfimeroBackend:
         self.lock = threading.Lock()
         self.sessions = STATE_DIR / f"{self.agent}-sessions"
         self.stopping = False  # stop() del servicio: el lector no debe dar voz de error
+        self.fresh_next = False  # «Sesión nueva»: el próximo arranque va sin --continue
 
     def _alive(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
@@ -415,15 +417,38 @@ class EfimeroBackend:
     def launch(self) -> tuple[bool, str]:
         return True, f"{self.title} lista; las órdenes la arrancan. Dile: «{self.title}, …»"
 
+    def _newest_is_today(self) -> bool:
+        """True si la sesión más reciente del directorio es de HOY. Sin ficheros, también True:
+        no hay memoria de ayer que cortar (y `--continue` con directorio vacío arranca sesión
+        nueva, continueRecent de pi). False → toca rotar: spawn fresco sin --continue."""
+        try:
+            newest = max(p.stat().st_mtime for p in self.sessions.glob("*.jsonl"))
+        except ValueError:  # sin sesiones todavía
+            return True
+        return newest >= time.mktime(date.today().timetuple())  # medianoche local
+
+    def new_session(self) -> str:
+        """«Sesión nueva» (tray): el próximo arranque no arrastra la conversación."""
+        with self.lock:
+            if self._alive():
+                return f"{self.title} está trabajando, espera a que termine."
+            self.fresh_next = True
+        self._say("Sesión nueva.")
+        return ""
+
     def send(self, order: str) -> tuple[bool, str]:
         with self.lock:
             if self._alive():
                 return False, f"{self.title} está ocupada, espera a que termine."
             self.sessions.mkdir(parents=True, exist_ok=True)
+            fresh = self.fresh_next or not self._newest_is_today()  # rotación: pedida o diaria
             # Opciones ANTES de «--»: para pi, todo lo que sigue a «--» es posicional (la orden)
-            # — así las órdenes que empiecen por «-» no se comen las opciones.
-            args = ["pi", "-p", "--session-dir", str(self.sessions), "--continue",
-                    *pi_args_for(self.cfg, with_herdr=False, voice=False), "--", order]
+            # — así las órdenes que empiecen por «-» no se comen las opciones. Spawn fresco =
+            # SOLO omitir --continue (nada de borrar ficheros: pi decide qué resume).
+            args = ["pi", "-p", "--session-dir", str(self.sessions)]
+            if not fresh:
+                args.append("--continue")
+            args += [*pi_args_for(self.cfg, with_herdr=False, voice=False), "--", order]
             errlog = open(STATE_DIR / f"{self.agent}-pi.log", "ab")
             try:
                 self.proc = subprocess.Popen(args, cwd=Path.home(), env=clean_child_env(), text=True,
@@ -431,7 +456,9 @@ class EfimeroBackend:
             except OSError as e:
                 errlog.close()
                 return False, f"No he podido arrancar pi: {e}"
-            log(f"[orden] {self.title} trabajando (pi -p one-shot, sesión {self.sessions})")
+            if fresh:
+                self.fresh_next = False  # consumido por este spawn
+            log(f"[orden] {self.title} trabajando (pi -p one-shot{', sesión nueva' if fresh else ''})")
         threading.Thread(target=self._read_answer, args=(self.proc, errlog), daemon=True).start()
         return True, ""
 
@@ -512,6 +539,13 @@ class Orchestrator:
         if self.backend is None:
             return False, self.reason
         return self.backend.launch()
+
+    def new_session(self) -> str:
+        """Sesión nueva (solo efimero): el próximo arranque no arrastra la conversación."""
+        if self.backend is None:
+            return self.reason
+        new = getattr(self.backend, "new_session", None)
+        return new() if callable(new) else "La sesión nueva solo aplica al backend efímero."
 
     def stop(self) -> None:
         if self.backend:

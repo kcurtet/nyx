@@ -29,7 +29,16 @@ time.sleep en el test — coste: refactor de 15 líneas, loop intacto semántica
 
 ## Task 3: rotación de sesión (diaria + botón tray)
 
-Pendiente.
+Complete (7a32b41, 5 tests nuevos: rotacion_diaria / sesion_nueva_por_comando /
+sesion_nueva_rechaza_trabajando / sesion_nueva_orquestador_y_sync / tray_item_solo_con_efimero
+→ 270 passed, ruff limpio).
+
+Ruling: `_newest_is_today()` devuelve True con el session-dir VACÍO — el snippet del plan
+(`max(...)`) dejaría el caso sin definir y con False el backend jamás pasaría --continue con
+un pi de verdad recién estrenado; verificado en el código de pi 1.5.2 (continueRecent:
+"Continue the most recent session, or create new if none") que --continue con dir vacío
+arranca sesión nueva, así que True es equivalente en comportamiento real y testeable con
+pi falso — coste: ninguno.
 
 ## Task 4: config, docs y verificación final
 

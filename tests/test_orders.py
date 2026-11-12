@@ -272,6 +272,77 @@ def test_doctor_rama_efimero(capsys, monkeypatch):  # D8: honesto, sin "en march
     assert "en marcha" not in out  # nada residente que "arrancar"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_rotacion_diaria(tmp_path, monkeypatch):  # A9: sesión de ayer → spawn fresco; hoy, --continue
+    log = _fake_pi_oneshot(tmp_path, monkeypatch)
+    said = []
+    b = o.EfimeroBackend(CFG, on_say=lambda t, brief=False: said.append(t))
+    ayer = b.sessions / "ayer.jsonl"
+    ayer.parent.mkdir(parents=True, exist_ok=True)
+    ayer.write_text("{}")
+    hace_un_dia = time.time() - 90_000  # ~25 h
+    os.utime(ayer, (hace_un_dia, hace_un_dia))
+    assert b.send("primera del día")[0]
+    _said(said)
+    argv = _wait_spawns(log)[0]["argv"]
+    assert "--continue" not in argv  # fresco: nueva sesión, sin arrastrar la de ayer
+    os.utime(ayer, None)  # el pi real acaba de crear/retocar la sesión de HOY
+    assert b.send("segunda")[0]
+    _said(said, n=2)
+    argv = _wait_spawns(log, n=2)[1]["argv"]
+    assert "--continue" in argv  # los siguientes retoman la del día
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_sesion_nueva_por_comando(tmp_path, monkeypatch):  # A10: idle → marca + "Sesión nueva."
+    log = _fake_pi_oneshot(tmp_path, monkeypatch)
+    said = []
+    b = o.EfimeroBackend(CFG, on_say=lambda t, brief=False: said.append((t, brief)))
+    assert b.status() == "idle"
+    assert b.new_session() == ""
+    assert b.fresh_next is True
+    assert said == [("Sesión nueva.", True)]  # feedback por voz
+    assert b.send("sin memoria")[0]
+    _said(said, n=2)
+    argv = _wait_spawns(log)[0]["argv"]
+    assert "--continue" not in argv and b.fresh_next is False  # consumido en el spawn
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="pi falso como script ejecutable de Unix")
+def test_sesion_nueva_rechaza_trabajando(tmp_path, monkeypatch):  # A10b: working → no se marca
+    _fake_pi_oneshot(tmp_path, monkeypatch, NYX_FAKE_SLEEP="10")
+    said = []
+    b = o.EfimeroBackend(CFG, on_say=lambda t, brief=False: said.append((t, brief)))
+    assert b.send("larga")[0] and b.status() == "working"
+    msg = b.new_session()
+    assert "está trabajando" in msg
+    assert b.fresh_next is False
+    assert not said  # sin "Sesión nueva." engañosa
+    b.stop()
+
+
+def test_sesion_nueva_orquestador_y_sync(monkeypatch):  # fachada + canal de control
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/pi" if c == "pi" else None)
+    orch = o.Orchestrator({**CFG, "backend": "efimero"})
+    assert orch.new_session() == "" and orch.backend.fresh_next is True
+    monkeypatch.setattr(o.shutil, "which", lambda c: "/usr/bin/herdr" if c == "herdr" else ("/usr/bin/pi" if c == "pi" else None))
+    monkeypatch.setattr(o, "_ensure_herdr_server", lambda timeout=8.0: (True, ""))
+    herdr = o.Orchestrator({**CFG})
+    assert "efímero" in herdr.new_session()  # otros backends: aviso claro, no crash
+    from nyx.hotkey import SYNC_COMMANDS
+
+    assert "session" in SYNC_COMMANDS  # el tray espera la respuesta (notify si hay aviso)
+
+
+def test_tray_item_solo_con_efimero():  # A11: «Sesión nueva» visible SOLO con efimero
+    from nyx.tray import session_item_visible
+
+    assert session_item_visible({"nyx": {"backend": "efimero"}}) is True
+    for st in ({"nyx": {"backend": "herdr"}}, {"nyx": {"backend": "pi"}}, {"nyx": None},
+               {}, None, {"nyx": {"state": "working"}}):
+        assert session_item_visible(st) is False
+
+
 def test_args_sin_herdr():
     args = o.pi_args_for(CFG, with_herdr=False)
     assert "--no-extensions" in args and not any("herdr" in a for a in args)
