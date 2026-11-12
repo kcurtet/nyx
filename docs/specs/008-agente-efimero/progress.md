@@ -42,7 +42,7 @@ pi falso — coste: ninguno.
 
 ## Task 4: config, docs y verificación final
 
-Complete (commit abajo): comentario de `backend` en config.py (tres backends + auto),
+Complete (472b23b): comentario de `backend` en config.py (tres backends + auto),
 sección `[orders]` nueva en nyx/config.example.toml con `# backend = "efimero"`, README
 (dónde vive + memoria en fichero + rotación diaria + botón) → 270 passed, ruff limpio,
 example sigue siendo TOML válido, default `auto` intacto.
@@ -57,7 +57,10 @@ unificado por construcción: launch() de orders.py usa backend.launch()).
 1. 5726a43 feat(orders): backend efimero — pi one-shot por orden con voz y memoria en fichero
 2. 163b550 feat(orders,doctor): efimero en choose_backend/_pick/supervisor y doctor honesto
 3. f08c650 feat(orders,app,tray): rotación de sesión — diaria y botón «Sesión nueva» (efimero)
-4. 45c31b0 docs(config,readme): backend efimero y rotación de sesión
+4. 472b23b docs(config,readme): backend efimero y rotación de sesión
+5. fix(orders): efimero — una orden tras stop() vuelve a leerse en voz alta — corrector menor
+   post-review (stopping quedaba a True y silenciaría lecturas posteriores sobre el mismo
+   objeto; sin camino real en producción, defensivo). Coste: 1 línea.
 
 ## Verificación manual (PENDIENTE para el humano — NO ejecutada por el implementador)
 

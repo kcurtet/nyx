@@ -450,6 +450,7 @@ class EfimeroBackend:
                 args.append("--continue")
             args += [*pi_args_for(self.cfg, with_herdr=False, voice=False), "--", order]
             errlog = open(STATE_DIR / f"{self.agent}-pi.log", "ab")
+            self.stopping = False  # orden nueva tras un stop(): esta SÍ se lee en voz alta
             try:
                 self.proc = subprocess.Popen(args, cwd=Path.home(), env=clean_child_env(), text=True,
                                              stdout=subprocess.PIPE, stderr=errlog)
