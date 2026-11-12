@@ -23,6 +23,7 @@ Decisiones del orquestador tras el builder-check (verificado contra pi 1.5.2: `-
 3. Al terminar el one-shot: la respuesta se lee en voz alta por el servicio (`say(brief=True)`), igual que hace voice.ts hoy; pi muere. Si pi falla (exit != 0, sin salida): voz de error clara.
 4. Memoria: `--session-dir` (el mismo `STATE_DIR/<agente>-sessions` que usa el backend pi) + `--continue`. Nada de contexto perdido entre órdenes.
 5. Estado visible: el tray/status muestra working mientras el one-shot vive, idle en reposo. «En reposo» NO es "no disponible": no hay nada que arrancar.
+6. **Rotación de sesión** (decisión del humano, sesión 2026-11-09): cada día arranca sesión nueva (primera orden del día, sin `--continue`), y el menú Nyx del tray gana «Sesión nueva» para rotarla a mano.
 
 ## No-objetivos
 
@@ -44,13 +45,15 @@ Decisiones del orquestador tras el builder-check (verificado contra pi 1.5.2: `-
 
 **D5 — `nyx agent` (CLI)**: usa el mismo texto de `launch()` ("el agente efímero no tiene proceso residente: dile «Nyx, …» y arranca solo" como idea; unificado con D1) y sale 0.
 
-**D5b — doctor**: `_doctor_orders` (nyx/doctor.py) gana rama efimero (~3 líneas): `r.ok("pi efímero", "arranca con cada orden; memoria en el fichero de sesión")` — sin "en marcha" residente (status idle/working como siempre).
+**D7 — Rotación de sesión**: `EfimeroBackend` decide el spawn fresco así: (a) flag `fresh_next` puesto por el comando de control `"session"` (SYNC) → el tray manda "session" desde el ítem «Sesión nueva» del menú Nyx (visible solo con backend efimero — el status ya expone `nyx.backend`); con agente trabajando → respuesta "está trabajando, espera" y NO se marca; (b) automático diario: antes de spawnear, si el fichero de sesión más reciente del `session-dir` es de un día anterior a hoy → spawn fresco (sin `--continue`). El spawn fresco simplemente OMITE `--continue`; los siguientes lo retoman (pi `--continue` resume la más reciente). Feedback: `on_say("Sesión nueva.", brief=True)` al rotar por botón.
+
+**D8 — doctor**: `_doctor_orders` (nyx/doctor.py) gana rama efimero (~3 líneas): `r.ok("pi efímero", "arranca con cada orden; memoria en el fichero de sesión")` — sin "en marcha" residente (status idle/working como siempre).
 
 **D6 — config/docs**: comentario de `backend` en `nyx/config.py` y sección `[orders]` nueva en `config.example.toml` (hoy no existe) con `backend = "efimero"` comentado; README (fila del backend y nota de que la memoria vive en el fichero de sesión). Docstring del módulo orders.py al día.
 
 ## Restricciones
 
-- Solo `nyx/orders.py`, `nyx/app.py` (paso del callback say), `nyx/doctor.py` (rama efimero, D5b), `nyx/config.py`, `config.example.toml`, `README.md` y tests.
+- Solo `nyx/orders.py`, `nyx/app.py` (callback say + comando "session"), `nyx/hotkey.py` ("session" en SYNC_COMMANDS), `nyx/tray.py` (ítem «Sesión nueva»), `nyx/doctor.py` (rama efimero, D5b), `nyx/config.py`, `config.example.toml`, `README.md` y tests.
 - Suite verde (Linux + Windows) y ruff; sin dependencias nuevas.
 - Tests del backend SIEMPRE con `pi` falso (script ejecutable o Popen fakeado, patrón `FAKE_PI` existente) — nunca un pi real en CI.
 
@@ -64,6 +67,9 @@ Decisiones del orquestador tras el builder-check (verificado contra pi 1.5.2: `-
 - **A6** G: `status()` con subprocess vivo/muerto. T: working/idle respectivamente; nunca None.
 - **A7** G: `choose_backend` con `"efimero"`. T: `("efimero", "")`; con auto/herdr/pi, comportamiento de hoy intacto.
 - **A8** (unit) G: `stop()` con one-shot vivo. T: se termina el proceso.
+- **A9** G: fichero de sesión más reciente de ayer. W: `send`. T: spawn SIN `--continue` (y los siguientes con él).
+- **A10** G: comando `"session"` con agente idle. W: `send` siguiente. T: ese spawn va sin `--continue` y suena "Sesión nueva.". G2: con agente working. T: respuesta "está trabajando", flag NO marcado.
+- **A11** G: tray con `nyx.backend == "efimero"`. T: ítem «Sesión nueva» visible; con otros backends, oculto.
 
 ## Casos límite
 
