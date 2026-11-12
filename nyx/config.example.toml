@@ -105,6 +105,19 @@ code_line_words = ["programar", "modo programar"]
 "insertar al final" = "esc shift+s"   # redefinida (mayúscula = shift+letra, no letra suelta)
 "duplicar línea" = "esc y y p"        # añadida (yy + p)
 
+[orders]
+# Órdenes por voz: «Nyx, …» no se pega; va a una orquestadora (pi) que maneja tus
+# repos, terminales y agentes, y responde en voz alta.
+wake_words = ["nyx"]
+# Dónde vive la orquestadora:
+#   "herdr"   su propio workspace de herdr (la ves trabajar y vigila tus agentes)
+#   "pi"      en segundo plano, dentro del servicio de nyx
+#   "efimero" nada encendido: cada orden arranca pi, responde en voz alta y muere.
+#              La memoria vive en el fichero de sesión (sesión nueva cada día, y a mano
+#              con «Sesión nueva» en el menú Nyx del icono de bandeja).
+#   "auto"    (por defecto) herdr si puede; si no, pi en segundo plano.
+# backend = "efimero"
+
 [llm]
 # Segunda pasada con un LLM local que corrige SOLO términos técnicos.
 # Añade ~0.3-1 s de latencia. Actívalo si los reemplazos no bastan.

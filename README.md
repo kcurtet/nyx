@@ -137,6 +137,8 @@ nyx order "¿qué hace el agente de screeps?"   # lo mismo, por texto
 - Responde **en voz alta** (1-2 frases; el detalle queda en su panel) y avisa si el modelo falla.
 - **Ve tu pantalla** con un modelo de visión local: `nyx look "¿qué error sale?"` (lfm3-omni vía Ollama).
 
+Dónde vive (`[orders] backend`): **herdr** (su propio workspace, la ves trabajar) · **pi** (en segundo plano dentro del servicio) · **efimero** (nada encendido: cada orden arranca pi, responde en voz alta y muere; la memoria vive en el fichero de sesión — **sesión nueva cada día** y a mano con «Sesión nueva» en el menú Nyx del icono de bandeja) · **auto** (por defecto: herdr si puede, si no pi).
+
 Configuración en `[orders]` (palabra de activación, modelo de pi) y `[vision]`.
 
 ## Comandos de voz
