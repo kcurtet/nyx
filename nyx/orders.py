@@ -32,6 +32,11 @@ from .platform_env import clean_child_env
 AGENT_DIR = Path(__file__).resolve().parent / "nyx"
 
 
+def _title(agent: str) -> str:
+    """Nombre bonito del agente («nyx-agent» → «Nyx-agent») — lo usan los tres backends y el orquestador."""
+    return agent[:1].upper() + agent[1:]
+
+
 def match_wake(text: str, wake_words: list[str]) -> str | None:
     """Si `text` empieza por una palabra de activación, devuelve la orden (sin ella); si no, None.
 
@@ -238,7 +243,7 @@ class HerdrBackend:
     def __init__(self, cfg: dict):
         self.cfg = cfg
         self.agent = cfg["agent"]
-        self.title = self.agent[:1].upper() + self.agent[1:]
+        self.title = _title(self.agent)
 
     def status(self) -> str | None:
         """Estado del agente (idle/working/blocked…) o None si no existe."""
@@ -313,7 +318,7 @@ class PiRpcBackend:
     def __init__(self, cfg: dict):
         self.cfg = cfg
         self.agent = cfg["agent"]
-        self.title = self.agent[:1].upper() + self.agent[1:]
+        self.title = _title(self.agent)
         self.proc: subprocess.Popen | None = None
         self.busy = False
         self.lock = threading.Lock()
@@ -400,7 +405,7 @@ class EfimeroBackend:
     def __init__(self, cfg: dict, on_say=None):
         self.cfg = cfg
         self.agent = cfg["agent"]
-        self.title = self.agent[:1].upper() + self.agent[1:]
+        self.title = _title(self.agent)
         self.on_say = on_say  # (texto, brief=…) — la voz del servicio; los otros backends la ignoran
         self.proc: subprocess.Popen | None = None
         self.lock = threading.Lock()
@@ -464,9 +469,14 @@ class EfimeroBackend:
         return True, ""
 
     def _read_answer(self, proc: subprocess.Popen, errlog) -> None:
-        out, _ = proc.communicate()
-        errlog.close()
-        text = (out or "").strip()
+        text = ""
+        try:
+            out, _ = proc.communicate()
+            text = (out or "").strip()
+        except Exception as e:  # noqa: BLE001  # el hilo lector nunca muere con traceback ni deja fds
+            log(f"[orden] {self.title}: fallo leyendo a pi: {e}")
+        finally:
+            errlog.close()
         if self.stopping:  # stop(): el proceso murió porque el servicio se apaga, no es un error
             return
         if proc.returncode == 0 or text:  # exit != 0 CON texto (stop length): es la respuesta que dio
@@ -481,13 +491,16 @@ class EfimeroBackend:
             log(f"[orden] {self.title}: {text[:200]}")
 
     def stop(self) -> None:
-        self.stopping = True
-        if self._alive():
-            self.proc.terminate()
-            try:
-                self.proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
+        # bajo la llave: sin ella, un send() concurrente puede spawnear un pi DESPUÉS de que
+        # stop() viera _alive() False → huérfano hablando con el servicio muriendo (review 008)
+        with self.lock:
+            self.stopping = True
+            if self._alive():
+                self.proc.terminate()
+                try:
+                    self.proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.proc.kill()
 
 
 # -------------------------------------------------------------- orquestador
@@ -497,7 +510,7 @@ class Orchestrator:
     def __init__(self, cfg: dict, on_say=None):
         self.cfg = cfg
         self.agent = cfg["agent"]
-        self.title = self.agent[:1].upper() + self.agent[1:]
+        self.title = _title(self.agent)
         self.on_say = on_say  # (texto, brief=…): solo lo usa el backend efímero (su voz es el servicio)
         self.backend = None
         self.reason = ""

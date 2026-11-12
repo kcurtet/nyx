@@ -67,3 +67,11 @@ unificado por construcción: launch() de orders.py usa backend.launch()).
 `backend = "efimero"` en config → reiniciar servicio → dictar «Nyx, ¿qué branch tengo?» →
 respuesta en voz alta → `pgrep -f "pi -p"` vacío → orden siguiente recuerda → botón
 «Sesión nueva» → siguiente orden sin memoria → mañana, primera orden = sesión del día.
+
+## Review fixes (orquestador)
+
+- fix(orders): stop() bajo self.lock — cierra la carrera spawn-tras-stop en shutdown (hallazgo 1 del eje Estándares). Test test_efimero_stop_espera_la_llave (RED: stop pasaba de largo sin la llave).
+- fix(orders): _read_answer con try/finally — errlog siempre cerrado, communicate() roto → voz de error, hilo nunca muerto con traceback (nota del eje Spec). Test test_efimero_lector_sobrevive_a_comunicate_roto.
+- refactor(orders): helper _title(agent) — regla de tres cumplida (4 ocurrencias).
+- Diferido a issue: stopping por-proceso (ventana de ms solo con cambio de backend en _pick).
+  - Nota de proceso: dos commits de fixes salieron con suite en rojo (firma de test y fake incompleto); enmendado a verde completo (272 passed) antes del merge. Lección: suite SIEMPRE antes de `git commit`, sin pipas que se traguen el resultado.

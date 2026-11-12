@@ -3,6 +3,7 @@ import os
 import re
 import stat
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -499,3 +500,31 @@ def test_doctor_avisa_si_nyx_arranco_herdr(capsys, monkeypatch):  # D5
 
     assert "herdr server arrancado por nyx" in seccion(True)
     assert "herdr server arrancado por nyx" not in seccion(False)
+
+
+def test_efimero_stop_espera_la_llave(tmp_path):  # review 008: stop() bajo lock (carrera spawn-tras-stop)
+    b = o.EfimeroBackend({**CFG}, on_say=lambda t, brief=False: None)
+    b.lock.acquire()
+    t = threading.Thread(target=b.stop)
+    t.start()
+    time.sleep(0.2)
+    assert t.is_alive()  # blocked en la llave, no pasa de largo
+    b.lock.release()
+    t.join(timeout=2)
+    assert not t.is_alive()
+
+
+def test_efimero_lector_sobrevive_a_comunicate_roto(tmp_path):  # review 008: errlog cerrado y voz de error, sin hilo muerto
+    said = []
+    b = o.EfimeroBackend({**CFG}, on_say=lambda t, brief=False: said.append(t))
+
+    class Boom:
+        returncode = 1
+
+        def communicate(self):
+            raise OSError("boom")
+    errlog = tmp_path / "err.log"
+    errlog.write_text("")
+    f = open(errlog, "a")
+    b._read_answer(Boom(), f)  # no debe lanzar
+    assert f.closed and said == [b.MSG_ERROR]
