@@ -102,3 +102,10 @@ def test_ci_de_instalacion_comprueba_nyx():
 @pytest.mark.skipif(shutil.which("bash") is None, reason="sin bash (Windows)")
 def test_install_sh_parsea():
     subprocess.run(["bash", "-n", str(RAIZ / "install.sh")], check=True)
+
+
+def test_gitattributes_fuerza_lf_en_sh():
+    # bash -n casca con CRLF (syntax error en el 'do'); sin esta regla el checkout
+    # de Windows (autocrlf) convierte install.sh y la CI se pone roja
+    reglas = (RAIZ / ".gitattributes").read_text(encoding="utf-8")
+    assert "*.sh text eol=lf" in reglas
