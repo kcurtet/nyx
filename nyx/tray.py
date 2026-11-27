@@ -127,6 +127,16 @@ def nyx_cmd(*args: str) -> list[str]:
     return [sys.executable, "-m", "nyx", *args]
 
 
+def stop_service() -> None:
+    """Para el servicio de systemd — y con él este icono (hijo del mismo cgroup).
+    Avisa ANTES de parar: el kill del cgroup se comería una notificación posterior."""
+    if not shutil.which("systemctl"):
+        return
+    notify("Parando nyx…", "arranca de nuevo: systemctl --user start nyx  (o reinicia la sesión)")
+    time.sleep(0.3)  # margen para que el aviso llegue a pantalla antes del kill
+    subprocess.Popen(["systemctl", "--user", "stop", "nyx"])
+
+
 def main() -> int:
     if sys.platform.startswith("linux"):
         os.environ.setdefault("PYSTRAY_BACKEND", "appindicator")
@@ -262,7 +272,7 @@ def main() -> int:
         Item("Configuración", lambda: open_path(str(config.ensure_config()))),
         Item("Ver log", lambda: open_path(str(config.LOG_PATH))),
         Item("Reiniciar nyx", restart),
-        Item("Cerrar icono", lambda icon, _i: icon.stop()),
+        Item("Parar nyx", lambda _icon, _item: stop_service()),
     )
     icon = pystray.Icon("nyx", icon_image("down"), "nyx", menu)
 
