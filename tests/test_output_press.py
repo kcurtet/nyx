@@ -92,7 +92,7 @@ def test_app_comprueba_keys_antes_de_discard():  # C2: la rama keys ANTES que di
 
     import nyx.app
 
-    src = Path(nyx.app.__file__).read_text()
+    src = Path(nyx.app.__file__).read_text(encoding="utf-8")
     assert src.index("if res.keys:") < src.index("if res.discard:")
 
 

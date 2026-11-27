@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -99,7 +99,7 @@ def test_ci_de_instalacion_comprueba_nyx():
     assert '"$HOME/.local/share/nyx/venv/bin/python"' in yml
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="sin bash (Windows)")
+@pytest.mark.skipif(sys.platform == "win32", reason="el bash de Windows (stub de WSL) no ejecuta -n de forma fiable")
 def test_install_sh_parsea():
     subprocess.run(["bash", "-n", str(RAIZ / "install.sh")], check=True)
 

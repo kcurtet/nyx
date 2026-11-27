@@ -5,6 +5,8 @@ rutas reales del usuario.
 """
 from pathlib import Path
 
+import pytest
+
 from nyx import migrate
 
 try:
@@ -33,6 +35,13 @@ def _home(tmp_path: Path) -> Path:
     h = tmp_path / "home"
     h.mkdir()
     return h
+
+
+@pytest.fixture(autouse=True)
+def _layout_linux(monkeypatch):
+    """Estos tests son de layout Linux: lo fijan de verdad también en un runner Windows
+    (que sin esto miraría AppData). test_rutas_de_windows parchea True él mismo."""
+    monkeypatch.setattr(migrate.config, "IS_WINDOWS", False)
 
 
 def _plantar_jerga(h: Path) -> None:
