@@ -236,6 +236,7 @@ def run():
                 "stt_ready": stt.model is not None,
                 "stt_device": stt.device,
                 "tts_ready": bool(speaker and speaker.tts is not None),
+                "tts_loading": bool(speaker and not speaker.ready.is_set()),  # veredicto pendiente: cargando o GPU libre
                 "recording": state["recording"],
                 "busy": state["busy"] or stt.lock.locked(),
                 "gpu_free": state["gpu_free"],

@@ -8,6 +8,7 @@ import json
 import os
 import platform
 import shutil
+import time
 from pathlib import Path
 
 from . import __version__, config
@@ -91,6 +92,78 @@ def _doctor_orders(r: Report, oc: dict) -> None:
         r.warn(f"{oc['agent']} no está en marcha", "el servicio la arranca solo; o: nyx agent")
 
 
+def _status_con_arranque(r: Report, settle: float = 2.0) -> dict | None:
+    """Status del servicio esperando el arranque: tras `systemctl --user restart` la
+    unidad está activa ~1 s antes de que el socket de control acepte pings, y el
+    doctor veía «no está en marcha» en ese hueco (#9). None = caída de verdad."""
+    from .hotkey import is_running, send_command
+
+    fin = time.monotonic() + settle
+    while True:
+        if is_running():
+            try:
+                return json.loads(send_command("status"))
+            except (OSError, ValueError):
+                r.ok("en marcha")  # responde pings aunque no dé status: no está caída
+                return {}
+        if time.monotonic() >= fin:
+            r.warn("no está en marcha", "systemctl --user start nyx  (o ejecuta `nyx`)")
+            return None
+        time.sleep(0.2)
+
+
+def _ultimo_error_tts() -> str:
+    """El último fallo del TTS del log, recortado — el porqué sin abrir el fichero."""
+    try:
+        lineas = config.LOG_PATH.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return "sin detalle en el log"
+    for line in reversed(lineas):
+        if "[tts] no disponible" in line:
+            return line.split("no disponible:", 1)[1].strip()[:200]
+    return "sin detalle en el log"
+
+
+def _doctor_voz(r: Report, cfg: dict, st: dict | None) -> None:
+    """Sección «Leer en voz alta» — aparte para poder testearla. `st` es el status
+    vivo del servicio: el veredicto lo da quien intentó cargar la voz (tts_ready);
+    `import ptts` solo comprueba la librería y daba ✔ con el modelo caído (#8)."""
+    r.section("Leer en voz alta")
+    if not cfg["tts"]["enabled"]:
+        r.warn("desactivado", "[tts] enabled = true")
+        return
+    try:
+        import ptts  # noqa: F401
+    except Exception as e:  # noqa: BLE001
+        r.bad("ptts no instalado", str(e))
+    else:
+        voz = f"voz phonon · {cfg['tts']['voice']} · tecla {cfg['tts']['key']} (o «léeme esto»)"
+        if st:  # el servicio lo ha intentado de verdad: su estado es el veredicto
+            if st.get("tts_ready"):
+                r.ok(voz)
+            elif st.get("gpu_free"):
+                r.warn(voz, "descargada (modo GPU libre): «Usar GPU» del tray la recarga")
+            elif st.get("tts_loading"):
+                r.warn(voz, "todavía cargando: vuelve a lanzar doctor en unos segundos")
+            else:
+                r.bad("la voz no carga", f"{_ultimo_error_tts()} · log: {config.LOG_PATH}")
+        elif st is not None:  # viva pero sin status: no hay veredicto en caliente
+            r.warn(voz, "status incompleto: voz no comprobada en caliente")
+        else:  # sin servicio no se puede saber: no inventar un ✔
+            r.warn(voz, "sin servicio en marcha: estado real no comprobado")
+    _doctor_salida_audio(r)
+
+
+def _doctor_salida_audio(r: Report) -> None:
+    """Salida de audio del «Leer en voz alta» — aparte para testearla sin hardware."""
+    try:
+        import sounddevice as sd
+
+        r.ok(f"salida de audio: {sd.query_devices(kind='output')['name']}")
+    except Exception as e:  # noqa: BLE001
+        r.warn("sin salida de audio", str(e))
+
+
 def doctor() -> int:
     r = Report()
     from .migrate import run as migrate_run
@@ -109,18 +182,13 @@ def doctor() -> int:
 
     # ------------------------------------------------------------- servicio
     r.section("Servicio")
-    from .hotkey import is_running, send_command
-
-    if is_running():
-        try:
-            st = json.loads(send_command("status"))
-            r.ok(f"en marcha (nyx {st.get('version')})",
-                 f"Whisper {'listo en ' + str(st.get('stt_device')) if st.get('stt_ready') else 'cargando'}"
-                 f" · voz {'lista' if st.get('tts_ready') else 'no disponible'}")
-        except (OSError, ValueError):
-            r.ok("en marcha")
-    else:
-        r.warn("no está en marcha", "systemctl --user start nyx  (o ejecuta `nyx`)")
+    st = _status_con_arranque(r)  # dict: viva (vacío si no da status) · None: caída
+    if st:
+        voz = ("lista" if st.get("tts_ready") else
+               "cargando" if st.get("tts_loading") and not st.get("gpu_free") else "no disponible")
+        r.ok(f"en marcha (nyx {st.get('version')})",
+             f"Whisper {'listo en ' + str(st.get('stt_device')) if st.get('stt_ready') else 'cargando'}"
+             f" · voz {voz}")
 
     # -------------------------------------------------------------- dictado
     r.section("Dictado")
@@ -188,22 +256,7 @@ def doctor() -> int:
             r.bad("no puedo simular Shift+Insert", "ejecuta install.sh (regla udev de /dev/uinput) o instala ydotool")
 
     # ------------------------------------------------------- leer en voz alta
-    r.section("Leer en voz alta")
-    if not cfg["tts"]["enabled"]:
-        r.warn("desactivado", "[tts] enabled = true")
-    else:
-        try:
-            import ptts  # noqa: F401
-
-            r.ok(f"voz phonon · {cfg['tts']['voice']} · tecla {cfg['tts']['key']} (o «léeme esto»)")
-        except Exception as e:  # noqa: BLE001
-            r.bad("ptts no instalado", str(e))
-        try:
-            import sounddevice as sd
-
-            r.ok(f"salida de audio: {sd.query_devices(kind='output')['name']}")
-        except Exception as e:  # noqa: BLE001
-            r.warn("sin salida de audio", str(e))
+    _doctor_voz(r, cfg, st)
 
     # ------------------------------------------------------------ transcribir
     r.section("Transcribir")
